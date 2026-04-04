@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Meld MVP Canvas</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg: #0f0f0f;
+      --panel: rgba(22, 22, 24, 0.96);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --text-primary: rgba(255, 255, 255, 0.96);
+      --text-secondary: rgba(255, 255, 255, 0.64);
+      --accent: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      overscroll-behavior: none;
+    }
+
+    body {
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg);
+      touch-action: none;
+    }
+
+    .floating-panel {
+      position: fixed;
+      z-index: 20;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #context-menu {
+      min-width: 196px;
+      padding: 8px;
+    }
+
+    #context-menu .menu-title {
+      padding: 8px 10px 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    #context-menu .menu-divider {
+      height: 1px;
+      margin: 8px 4px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    #context-menu button {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-primary);
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #context-menu button:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    #delete-card-button {
+      color: #fca5a5;
+    }
+
+    #editor-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: rgba(0, 0, 0, 0.24);
+    }
+
+    #editor-panel {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 360px;
+      min-height: 260px;
+      padding: 14px;
+    }
+
+    #editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    #editor-header span:last-child {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    #editor-text {
+      flex: 1;
+      width: 100%;
+      min-height: 180px;
+      resize: none;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      background: #101012;
+      color: var(--text-primary);
+      font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      outline: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    #editor-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    #editor-actions button {
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    #cancel-editor {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    #save-editor {
+      background: #ffffff;
+      color: #111111;
+      font-weight: 600;
+    }
+
+    #hud {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 10;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(16, 16, 18, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 12px;
+      line-height: 1;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="context-menu" class="floating-panel hidden">
+    <div id="context-menu-title" class="menu-title">创建卡片</div>
+    <button type="button" data-action="create" data-card-type="markdown">新建 Markdown</button>
+    <button type="button" data-action="create" data-card-type="file">新建 File</button>
+    <button type="button" data-action="create" data-card-type="agent">新建 Agent</button>
+    <button type="button" data-action="create" data-card-type="note">新建 Note</button>
+    <div id="delete-divider" class="menu-divider hidden"></div>
+    <button id="delete-card-button" class="hidden" type="button" data-action="delete-card">删除卡片</button>
+  </div>
+
+  <div id="editor-overlay" class="hidden">
+    <div id="editor-panel" class="floating-panel">
+      <div id="editor-header">
+        <span id="editor-title">编辑 Markdown</span>
+        <span>Ctrl/Cmd + S 保存</span>
+      </div>
+      <textarea id="editor-text" spellcheck="false"></textarea>
+      <div id="editor-actions">
+        <button id="cancel-editor" type="button">取消</button>
+        <button id="save-editor" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="hud">缩放 100% · 0 张卡片</div>
+
+  <script>
+    const STORAGE_KEY = "meld-mvp-canvas-v1";
+    const STORAGE_FALLBACK_KEYS = ["meld-mvp-canvas-v2"];
+    const GRID_SIZE = 40;
+    const DEFAULT_CARD_SIZE = { w: 2, h: 3 };
+    const CARD_TYPES = ["markdown", "file", "agent", "note"];
+    const AGENT_STATUSES = ["idle", "running", "paused"];
+    const MIN_ZOOM = 0.25;
+    const MAX_ZOOM = 3;
+    const LONG_PRESS_MS = 460;
+    const DOUBLE_TAP_MS = 320;
+    const TAP_MOVE_THRESHOLD = 10;
+    const PIPE_HIT_THRESHOLD = 10;
+    const CARD_COLORS = {
+      markdown: "#3b82f6",
+      file: "#10b981",
+      agent: "#f59e0b",
+      note: "#8b5cf6",
+    };
+    const AGENT_STATUS_COLORS = {
+      idle: "#94a3b8",
+      running: "#10b981",
+      paused: "#f59e0b",
+    };
+    const TYPE_LABELS = {
+      markdown: "Markdown",
+      file: "File",
+      agent: "Agent",
+      note: "Note",
+    };
+    const TYPE_DEFAULT_CONTENT = {
+      markdown: "# New markdown card",
+      file: "File card",
+      agent: "Agent card",
+      note: "- Note item",
+    };
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const contextMenu = document.getElementById("context-menu");
+    const contextMenuTitle = document.getElementById("context-menu-title");
+    const deleteDivider = document.getElementById("delete-divider");
+    const deleteCardButton = document.getElementById("delete-card-button");
+    const editorOverlay = document.getElementById("editor-overlay");
+    const editorPanel = document.getElementById("editor-panel");
+    const editorTitle = document.getElementById("editor-title");
+    const editorText = document.getElementById("editor-text");
+    const saveEditorButton = document.getElementById("save-editor");
+    const cancelEditorButton = document.getElementById("cancel-editor");
+    const hud = document.getElementById("hud");
+
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      dpr: window.devicePixelRatio || 1,
+    };
+
+    let state = loadState();
+    let saveTimer = null;
+    let editorCardId = null;
+    let contextMenuState = null;
+    let hudText = "";
+    let lastTap = {
+      time: 0,
+      cardId: null,
+      x: 0,
+      y: 0,
+    };
+
+    const selection = {
+      type: null,
+      id: null,
+    };
+
+    const hover = {
+      cardId: null,
+      kind: null,
+    };
+
+    const effects = {
+      cardEntrances: new Map(),
+      pipeFlashes: new Map(),
+    };
+
+    const interaction = {
+      mode: "idle",
+      pointerX: 0,
+      pointerY: 0,
+      cardId: null,
+      fromCardId: null,
+      dragOffsetWorldX: 0,
+      dragOffsetWorldY: 0,
+      startScreenX: 0,
+      startScreenY: 0,
+      startCameraX: 0,
+      startCameraY: 0,
+      startZoom: 1,
+      pinchWorldX: 0,
+      pinchWorldY: 0,
+      pinchStartDistance: 0,
+      touchId: null,
+      touchIntent: null,
+      moved: false,
+      longPressTimer: null,
+    };
+
+    function createDefaultState() {
+      return {
+        version: 2,
+        camera: {
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+          zoom: 1,
+        },
+        cards: [],
+        pipes: [],
+      };
+    }
+
+    function normalizeState(raw) {
+      const fallback = createDefaultState();
+      if (!raw || typeof raw !== "object") {
+        return fallback;
+      }
+
+      const normalizedCards = Array.isArray(raw.cards)
+        ? raw.cards
+            .filter((card) => card && typeof card === "object")
+            .map((card) => {
+              const type = CARD_TYPES.includes(card.type) ? card.type : "markdown";
+              const status = AGENT_STATUSES.includes(card.meta?.status) ? card.meta.status : "idle";
+              return {
+                id: typeof card.id === "string" ? card.id : createId(),
+                type,
+                position: {
+                  x: Number.isFinite(card.position?.x) ? card.position.x : 0,
+                  y: Number.isFinite(card.position?.y) ? card.position.y : 0,
+                },
+                size: {
+                  w: Number.isFinite(card.size?.w) ? card.size.w : DEFAULT_CARD_SIZE.w,
+                  h: Number.isFinite(card.size?.h) ? card.size.h : DEFAULT_CARD_SIZE.h,
+                },
+                content: typeof card.content === "string" ? card.content : TYPE_DEFAULT_CONTENT[type],
+                meta: {
+                  title:
+                    typeof card.meta?.title === "string" && card.meta.title.trim()
+                      ? card.meta.title
+                      : TYPE_LABELS[type],
+                  created:
+                    typeof card.meta?.created === "string"
+                      ? card.meta.created
+                      : new Date().toISOString(),
+                  status,
+                },
+              };
+            })
+        : [];
+
+      const cardIds = new Set(normalizedCards.map((card) => card.id));
+      const normalizedPipes = Array.isArray(raw.pipes)
+        ? raw.pipes
+            .filter((pipe) => pipe && typeof pipe === "object")
+            .filter((pipe) => cardIds.has(pipe.from) && cardIds.has(pipe.to))
+            .map((pipe) => ({
+              id: typeof pipe.id === "string" ? pipe.id : createId(),
+              from: pipe.from,
+              to: pipe.to,
+              active: pipe.active !== false,
+            }))
+        : [];
+
+      return {
+        version: 2,
+        camera: {
+          x: Number.isFinite(raw.camera?.x) ? raw.camera.x : fallback.camera.x,
+          y: Number.isFinite(raw.camera?.y) ? raw.camera.y : fallback.camera.y,
+          zoom: Number.isFinite(raw.camera?.zoom) ? clamp(raw.camera.zoom, MIN_ZOOM, MAX_ZOOM) : 1,
+        },
+        cards: normalizedCards,
+        pipes: normalizedPipes,
+      };
+    }
+
+    function loadState() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return normalizeState(JSON.parse(stored));
+        }
+        for (const key of STORAGE_FALLBACK_KEYS) {
+          const fallbackStored = localStorage.getItem(key);
+          if (fallbackStored) {
+            return normalizeState(JSON.parse(fallbackStored));
+          }
+        }
+        return createDefaultState();
+      } catch (error) {
+        console.warn("Failed to load saved canvas state.", error);
+        return createDefaultState();
+      }
+    }
+
+    function saveState() {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(saveState, 100);
+    }
+
+    function createId() {
+      if (window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+      }
+      return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function easeOutCubic(value) {
+      return 1 - Math.pow(1 - value, 3);
+    }
+
+    function worldToScreen(x, y) {
+      return {
+        x: x * state.camera.zoom + state.camera.x,
+        y: y * state.camera.zoom + state.camera.y,
+      };
+    }
+
+    function screenToWorld(x, y) {
+      return screenToWorldWithCamera(x, y, state.camera);
+    }
+
+    function screenToWorldWithCamera(x, y, camera) {
+      return {
+        x: (x - camera.x) / camera.zoom,
+        y: (y - camera.y) / camera.zoom,
+      };
+    }
+
+    function snapGrid(value) {
+      return Math.round(value);
+    }
+
+    function getCardColor(type) {
+      return CARD_COLORS[type] || CARD_COLORS.markdown;
+    }
+
+    function getCardById(cardId) {
+      return state.cards.find((card) => card.id === cardId) || null;
+    }
+
+    function getPipeById(pipeId) {
+      return state.pipes.find((pipe) => pipe.id === pipeId) || null;
+    }
+
+    function getCardWorldRect(card) {
+      return {
+        x: card.position.x * GRID_SIZE,
+        y: card.position.y * GRID_SIZE,
+        width: card.size.w * GRID_SIZE,
+        height: card.size.h * GRID_SIZE,
+      };
+    }
+
+    function getCardScreenRect(card) {
+      const worldRect = getCardWorldRect(card);
+      const topLeft = worldToScreen(worldRect.x, worldRect.y);
+      return {
+        x: topLeft.x,
+        y: topLeft.y,
+        width: worldRect.width * state.camera.zoom,
+        height: worldRect.height * state.camera.zoom,
+      };
+    }
+
+    function getPortScreenPosition(card, kind) {
+      const rect = getCardScreenRect(card);
+      return {
+        x: kind === "input" ? rect.x : rect.x + rect.width,
+        y: rect.y + rect.height / 2,
+      };
+    }
+
+    function isPointInRect(x, y, rect) {
+      return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+    }
+
+    function getPortVisualRadius(cardId, kind) {
+      return hover.cardId === cardId && hover.kind === kind ? 4 : 3;
+    }
+
+    function bringCardToFront(cardId) {
+      const index = state.cards.findIndex((card) => card.id === cardId);
+      if (index < 0 || index === state.cards.length - 1) {
+        return;
+      }
+      const [card] = state.cards.splice(index, 1);
+      state.cards.push(card);
+    }
+
+    function selectCard(cardId) {
+      selection.type = cardId ? "card" : null;
+      selection.id = cardId || null;
+    }
+
+    function selectPipe(pipeId) {
+      selection.type = pipeId ? "pipe" : null;
+      selection.id = pipeId || null;
+    }
+
+    function clearSelection() {
+      selection.type = null;
+      selection.id = null;
+    }
+
+    function hitTestCard(x, y) {
+      for (let index = state.cards.length - 1; index >= 0; index -= 1) {
+        const card = state.cards[index];
+        if (isPointInRect(x, y, getCardScreenRect(card))) {
+          return card;
+        }
+      }
+      return null;
+    }
+
+    function hitTestPort(x, y) {
+      const radius = 12;
+      for (let index = state.cards.length - 1; index >= 0; index -= 1) {
+        const card = state.cards[index];
+        const input = getPortScreenPosition(card, "input");
+        const output = getPortScreenPosition(card, "output");
+        if (Math.hypot(x - output.x, y - output.y) <= radius) {
+          return { card, kind: "output" };
+        }
+        if (Math.hypot(x - input.x, y - input.y) <= radius) {
+          return { card, kind: "input" };
+        }
+      }
+      return null;
+    }
+
+    function getPipeCurve(from, to) {
+      const distance = Math.abs(to.x - from.x);
+      const controlOffset = clamp(distance * 0.5, 48, 180);
+      return {
+        p0: from,
+        p1: { x: from.x + controlOffset, y: from.y },
+        p2: { x: to.x - controlOffset, y: to.y },
+        p3: to,
+      };
+    }
+
+    function getBezierPoint(curve, t) {
+      const inverse = 1 - t;
+      return {
+        x:
+          inverse * inverse * inverse * curve.p0.x +
+          3 * inverse * inverse * t * curve.p1.x +
+          3 * inverse * t * t * curve.p2.x +
+          t * t * t * curve.p3.x,
+        y:
+          inverse * inverse * inverse * curve.p0.y +
+          3 * inverse * inverse * t * curve.p1.y +
+          3 * inverse * t * t * curve.p2.y +
+          t * t * t * curve.p3.y,
+      };
+    }
+
+    function pointToSegmentDistance(px, py, ax, ay, bx, by) {
+      const abx = bx - ax;
+      const aby = by - ay;
+      const lengthSquared = abx * abx + aby * aby;
+      if (!lengthSquared) {
+        return Math.hypot(px - ax, py - ay);
+      }
+      const t = clamp(((px - ax) * abx + (py - ay) * aby) / lengthSquared, 0, 1);
+      const cx = ax + abx * t;
+      const cy = ay + aby * t;
+      return Math.hypot(px - cx, py - cy);
+    }
+
+    function hitTestPipe(x, y) {
+      for (let index = state.pipes.length - 1; index >= 0; index -= 1) {
+        const pipe = state.pipes[index];
+        const fromCard = getCardById(pipe.from);
+        const toCard = getCardById(pipe.to);
+        if (!fromCard || !toCard) {
+          continue;
+        }
+
+        const curve = getPipeCurve(getPortScreenPosition(fromCard, "output"), getPortScreenPosition(toCard, "input"));
+        let previous = curve.p0;
+        let closestDistance = Infinity;
+        for (let step = 1; step <= 24; step += 1) {
+          const point = getBezierPoint(curve, step / 24);
+          closestDistance = Math.min(
+            closestDistance,
+            pointToSegmentDistance(x, y, previous.x, previous.y, point.x, point.y)
+          );
+          previous = point;
+        }
+
+        if (closestDistance <= PIPE_HIT_THRESHOLD) {
+          return pipe;
+        }
+      }
+      return null;
+    }
+
+    function parseNoteItemCount(text) {
+      const lines = text
+        .replace(/\r/g, "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const markdownItems = lines.filter((line) => /^([-*+]|\d+\.)\s+/.test(line));
+      return markdownItems.length || lines.length || 0;
+    }
+
+    function createCard(type, gridPosition) {
+      const card = {
+        id: createId(),
+        type,
+        position: {
+          x: gridPosition.x,
+          y: gridPosition.y,
+        },
+        size: { ...DEFAULT_CARD_SIZE },
+        content: TYPE_DEFAULT_CONTENT[type],
+        meta: {
+          title: TYPE_LABELS[type],
+          created: new Date().toISOString(),
+          status: "idle",
+        },
+      };
+      state.cards.push(card);
+      effects.cardEntrances.set(card.id, performance.now());
+      selectCard(card.id);
+      bringCardToFront(card.id);
+      scheduleSave();
+      return card;
+    }
+
+    function createPipe(fromCardId, toCardId) {
+      if (fromCardId === toCardId) {
+        return null;
+      }
+
+      const existingPipe = state.pipes.find((pipe) => pipe.from === fromCardId && pipe.to === toCardId);
+      if (existingPipe) {
+        return existingPipe;
+      }
+
+      const pipe = {
+        id: createId(),
+        from: fromCardId,
+        to: toCardId,
+        active: true,
+      };
+      state.pipes.push(pipe);
+      effects.pipeFlashes.set(pipe.id, performance.now());
+      scheduleSave();
+      return pipe;
+    }
+
+    function deletePipe(pipeId) {
+      const index = state.pipes.findIndex((pipe) => pipe.id === pipeId);
+      if (index < 0) {
+        return;
+      }
+      state.pipes.splice(index, 1);
+      effects.pipeFlashes.delete(pipeId);
+      if (selection.type === "pipe" && selection.id === pipeId) {
+        clearSelection();
+      }
+      scheduleSave();
+    }
+
+    function deleteCard(cardId) {
+      const cardIndex = state.cards.findIndex((card) => card.id === cardId);
+      if (cardIndex < 0) {
+        return;
+      }
+
+      state.cards.splice(cardIndex, 1);
+      state.pipes = state.pipes.filter((pipe) => pipe.from !== cardId && pipe.to !== cardId);
+      effects.cardEntrances.delete(cardId);
+      for (const pipeId of [...effects.pipeFlashes.keys()]) {
+        if (!getPipeById(pipeId)) {
+          effects.pipeFlashes.delete(pipeId);
+        }
+      }
+
+      if (selection.type === "card" && selection.id === cardId) {
+        clearSelection();
+      }
+      if (selection.type === "pipe" && selection.id && !getPipeById(selection.id)) {
+        clearSelection();
+      }
+      if (editorCardId === cardId) {
+        closeEditor(false);
+      }
+
+      hideContextMenu();
+      scheduleSave();
+    }
+
+    function resizeCanvas() {
+      viewport.width = window.innerWidth;
+      viewport.height = window.innerHeight;
+      viewport.dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(viewport.width * viewport.dpr);
+      canvas.height = Math.floor(viewport.height * viewport.dpr);
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+    }
+
+    function updateHoverState(x, y) {
+      const portHit = hitTestPort(x, y);
+      hover.cardId = portHit?.card.id || null;
+      hover.kind = portHit?.kind || null;
+    }
+
+    function updateCursor(x, y) {
+      updateHoverState(x, y);
+
+      if (interaction.mode === "pan" || interaction.mode === "drag-card") {
+        canvas.style.cursor = "grabbing";
+        return;
+      }
+
+      if (interaction.mode === "connect") {
+        canvas.style.cursor = "crosshair";
+        return;
+      }
+
+      const portHit = hitTestPort(x, y);
+      if (portHit) {
+        canvas.style.cursor = "crosshair";
+        return;
+      }
+
+      const cardHit = hitTestCard(x, y);
+      const pipeHit = !cardHit ? hitTestPipe(x, y) : null;
+      canvas.style.cursor = cardHit ? "grab" : pipeHit ? "pointer" : "default";
+    }
+
+    function showContextMenu(screenX, screenY, gridPosition, cardId = null) {
+      contextMenuState = { gridPosition, cardId };
+      const hasCard = Boolean(cardId);
+      contextMenuTitle.textContent = hasCard ? "卡片操作" : "创建卡片";
+      deleteDivider.classList.toggle("hidden", !hasCard);
+      deleteCardButton.classList.toggle("hidden", !hasCard);
+      contextMenu.classList.remove("hidden");
+
+      const estimatedHeight = hasCard ? 290 : 236;
+      const estimatedWidth = 212;
+      contextMenu.style.left = `${Math.min(screenX, viewport.width - estimatedWidth - 12)}px`;
+      contextMenu.style.top = `${Math.min(screenY, viewport.height - estimatedHeight - 12)}px`;
+    }
+
+    function hideContextMenu() {
+      contextMenuState = null;
+      contextMenu.classList.add("hidden");
+    }
+
+    function openEditor(card) {
+      if (!card || card.type !== "markdown") {
+        return;
+      }
+
+      const cardRect = getCardScreenRect(card);
+      const panelWidth = clamp(Math.max(cardRect.width, 360), 360, 560);
+      const panelHeight = clamp(Math.max(cardRect.height + 120, 280), 280, viewport.height - 32);
+      const panelLeft = clamp(cardRect.x, 16, viewport.width - panelWidth - 16);
+      const panelTop = clamp(cardRect.y, 16, viewport.height - panelHeight - 16);
+
+      editorCardId = card.id;
+      editorTitle.textContent = `${card.meta.title} 编辑`;
+      editorText.value = card.content;
+      editorPanel.style.width = `${panelWidth}px`;
+      editorPanel.style.height = `${panelHeight}px`;
+      editorPanel.style.left = `${panelLeft}px`;
+      editorPanel.style.top = `${panelTop}px`;
+      editorOverlay.classList.remove("hidden");
+      editorText.focus();
+      editorText.select();
+    }
+
+    function closeEditor(save) {
+      if (save && editorCardId) {
+        const card = getCardById(editorCardId);
+        if (card) {
+          card.content = editorText.value;
+          scheduleSave();
+        }
+      }
+      editorCardId = null;
+      editorOverlay.classList.add("hidden");
+    }
+
+    function drawRoundedRect(x, y, width, height, radius) {
+      const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+      ctx.beginPath();
+      ctx.moveTo(x + safeRadius, y);
+      ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
+      ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
+      ctx.arcTo(x, y + height, x, y, safeRadius);
+      ctx.arcTo(x, y, x + width, y, safeRadius);
+      ctx.closePath();
+    }
+
+    function drawGrid() {
+      const leftWorld = (0 - state.camera.x) / state.camera.zoom;
+      const rightWorld = (viewport.width - state.camera.x) / state.camera.zoom;
+      const topWorld = (0 - state.camera.y) / state.camera.zoom;
+      const bottomWorld = (viewport.height - state.camera.y) / state.camera.zoom;
+
+      const startX = Math.floor(leftWorld / GRID_SIZE) * GRID_SIZE;
+      const endX = Math.ceil(rightWorld / GRID_SIZE) * GRID_SIZE;
+      const startY = Math.floor(topWorld / GRID_SIZE) * GRID_SIZE;
+      const endY = Math.ceil(bottomWorld / GRID_SIZE) * GRID_SIZE;
+
+      ctx.fillStyle = "#2a2a2a";
+      for (let x = startX; x <= endX; x += GRID_SIZE) {
+        for (let y = startY; y <= endY; y += GRID_SIZE) {
+          const screen = worldToScreen(x, y);
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function buildPipePath(from, to) {
+      const curve = getPipeCurve(from, to);
+      ctx.beginPath();
+      ctx.moveTo(curve.p0.x, curve.p0.y);
+      ctx.bezierCurveTo(curve.p1.x, curve.p1.y, curve.p2.x, curve.p2.y, curve.p3.x, curve.p3.y);
+      return curve;
+    }
+
+    function drawBezierPipe(from, to, options) {
+      const {
+        active = true,
+        temporary = false,
+        startColor = "#ffffff",
+        endColor = "#ffffff",
+        selected = false,
+        timestamp = 0,
+        flashProgress = null,
+      } = options;
+
+      const pulse = active ? 0.55 + 0.45 * Math.sin(timestamp * 0.004) : 0.5;
+      const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+      gradient.addColorStop(0, startColor);
+      gradient.addColorStop(1, endColor);
+
+      ctx.save();
+      buildPipePath(from, to);
+      ctx.lineCap = "round";
+      ctx.lineWidth = temporary ? 2 : 2.1 + pulse * 0.85;
+      ctx.strokeStyle = gradient;
+      ctx.globalAlpha = temporary ? 0.85 : 0.7 + pulse * 0.2;
+      if (temporary) {
+        ctx.setLineDash([8, 6]);
+      }
+      ctx.stroke();
+
+      if (selected) {
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+        buildPipePath(from, to);
+        ctx.lineWidth = temporary ? 4 : 5;
+        ctx.strokeStyle = "rgba(96, 165, 250, 0.42)";
+        ctx.stroke();
+      }
+
+      if (flashProgress !== null && flashProgress < 1) {
+        const intensity = 1 - flashProgress;
+        buildPipePath(from, to);
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.8 * intensity;
+        ctx.lineWidth = 4 + intensity * 5;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function drawPipes(timestamp) {
+      for (const pipe of state.pipes) {
+        const fromCard = getCardById(pipe.from);
+        const toCard = getCardById(pipe.to);
+        if (!fromCard || !toCard) {
+          continue;
+        }
+
+        const flashStart = effects.pipeFlashes.get(pipe.id);
+        let flashProgress = null;
+        if (typeof flashStart === "number") {
+          flashProgress = clamp((timestamp - flashStart) / 240, 0, 1);
+          if (flashProgress >= 1) {
+            effects.pipeFlashes.delete(pipe.id);
+            flashProgress = null;
+          }
+        }
+
+        drawBezierPipe(getPortScreenPosition(fromCard, "output"), getPortScreenPosition(toCard, "input"), {
+          active: pipe.active,
+          temporary: false,
+          startColor: getCardColor(fromCard.type),
+          endColor: getCardColor(toCard.type),
+          selected: selection.type === "pipe" && selection.id === pipe.id,
+          timestamp: timestamp + fromCard.position.x * 31 + toCard.position.y * 17,
+          flashProgress,
+        });
+      }
+
+      if (interaction.mode === "connect" && interaction.fromCardId) {
+        const fromCard = getCardById(interaction.fromCardId);
+        if (fromCard) {
+          drawBezierPipe(getPortScreenPosition(fromCard, "output"), { x: interaction.pointerX, y: interaction.pointerY }, {
+            active: true,
+            temporary: true,
+            startColor: getCardColor(fromCard.type),
+            endColor: "rgba(255, 255, 255, 0.82)",
+            selected: false,
+            timestamp,
+          });
+        }
+      }
+    }
+
+    function fitTextWithEllipsis(text, maxWidth) {
+      if (ctx.measureText(text).width <= maxWidth) {
+        return text;
+      }
+      let trimmed = text;
+      while (trimmed.length > 0 && ctx.measureText(`${trimmed}...`).width > maxWidth) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      return trimmed ? `${trimmed}...` : "...";
+    }
+
+    function buildWrappedLines(text, maxWidth, maxLines) {
+      const lines = [];
+      const paragraphs = text.replace(/\r/g, "").split("\n");
+
+      for (const paragraph of paragraphs) {
+        if (!paragraph.length) {
+          lines.push("");
+          if (lines.length >= maxLines) {
+            return lines.slice(0, maxLines);
+          }
+          continue;
+        }
+
+        const words = paragraph.split(/\s+/);
+        let line = "";
+
+        for (const word of words) {
+          const candidate = line ? `${line} ${word}` : word;
+          if (ctx.measureText(candidate).width <= maxWidth) {
+            line = candidate;
+            continue;
+          }
+
+          if (line) {
+            lines.push(line);
+            if (lines.length >= maxLines) {
+              lines[maxLines - 1] = fitTextWithEllipsis(lines[maxLines - 1], maxWidth);
+              return lines.slice(0, maxLines);
+            }
+            line = "";
+          }
+
+          if (ctx.measureText(word).width <= maxWidth) {
+            line = word;
+            continue;
+          }
+
+          let chunk = "";
+          for (const char of word) {
+            const nextChunk = chunk + char;
+            if (ctx.measureText(nextChunk).width <= maxWidth || !chunk.length) {
+              chunk = nextChunk;
+              continue;
+            }
+
+            lines.push(chunk);
+            if (lines.length >= maxLines) {
+              lines[maxLines - 1] = fitTextWithEllipsis(lines[maxLines - 1], maxWidth);
+              return lines.slice(0, maxLines);
+            }
+            chunk = char;
+          }
+          line = chunk;
+        }
+
+        if (line || words.length === 0) {
+          lines.push(line);
+          if (lines.length >= maxLines) {
+            return lines.slice(0, maxLines);
+          }
+        }
+      }
+
+      return lines;
+    }
+
+    function drawBadge(text, x, y, background, color) {
+      ctx.save();
+      ctx.font = "600 10px system-ui";
+      const width = ctx.measureText(text).width + 12;
+      const height = 18;
+      drawRoundedRect(x - width, y, width, height, 9);
+      ctx.fillStyle = background;
+      ctx.fill();
+      ctx.fillStyle = color;
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, x - width + 6, y + height / 2);
+      ctx.restore();
+    }
+
+    function drawAgentStatusBadge(status, x, y) {
+      const dotColor = AGENT_STATUS_COLORS[status] || AGENT_STATUS_COLORS.idle;
+      const text = status;
+      ctx.save();
+      ctx.font = "600 10px system-ui";
+      const width = ctx.measureText(text).width + 22;
+      const height = 18;
+      drawRoundedRect(x - width, y, width, height, 9);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x - width + 9, y + height / 2, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = dotColor;
+      ctx.fill();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, x - width + 16, y + height / 2);
+      ctx.restore();
+    }
+
+    function drawCard(card, timestamp) {
+      const rect = getCardScreenRect(card);
+      const color = getCardColor(card.type);
+      const radius = 8;
+      const stripHeight = 4;
+      const paddingX = clamp(12 * state.camera.zoom, 10, 16);
+      const paddingY = clamp(11 * state.camera.zoom, 9, 15);
+      const titleFontSize = clamp(13 * state.camera.zoom, 11, 15);
+      const bodyFontSize = clamp(12 * state.camera.zoom, 10, 14);
+      const bodyLineHeight = bodyFontSize * 1.5;
+      const labelFontSize = clamp(10 * state.camera.zoom, 9, 11);
+      const bodyTop = rect.y + paddingY + titleFontSize + 18;
+      const bodyHeight = Math.max(24, rect.height - (bodyTop - rect.y) - paddingY);
+      const maxLines = Math.max(1, Math.floor(bodyHeight / bodyLineHeight));
+      const preview = card.content || TYPE_DEFAULT_CONTENT[card.type];
+      const entranceStart = effects.cardEntrances.get(card.id);
+      const badgeReservedWidth = card.type === "agent" ? 54 : card.type === "note" ? 28 : 0;
+
+      ctx.save();
+      if (typeof entranceStart === "number") {
+        const progress = clamp((timestamp - entranceStart) / 200, 0, 1);
+        const eased = easeOutCubic(progress);
+        const scale = 0.8 + 0.2 * eased;
+        const centerX = rect.x + rect.width / 2;
+        const centerY = rect.y + rect.height / 2;
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.translate(-centerX, -centerY);
+        if (progress >= 1) {
+          effects.cardEntrances.delete(card.id);
+        }
+      }
+
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
+      drawRoundedRect(rect.x, rect.y, rect.width, rect.height, radius);
+      ctx.fillStyle = "#17171a";
+      ctx.fill();
+
+      ctx.shadowColor = "transparent";
+      drawRoundedRect(rect.x, rect.y, rect.width, rect.height, radius);
+      ctx.lineWidth = selection.type === "card" && selection.id === card.id ? 1.8 : 1;
+      ctx.strokeStyle =
+        selection.type === "card" && selection.id === card.id ? "#60a5fa" : "rgba(255, 255, 255, 0.08)";
+      ctx.stroke();
+
+      ctx.save();
+      drawRoundedRect(rect.x, rect.y, rect.width, rect.height, radius);
+      ctx.clip();
+      ctx.fillStyle = color;
+      ctx.fillRect(rect.x, rect.y, rect.width, stripHeight);
+      ctx.restore();
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
+      ctx.font = `600 ${titleFontSize}px system-ui`;
+      ctx.textBaseline = "top";
+      ctx.fillText(
+        fitTextWithEllipsis(card.meta.title, Math.max(20, rect.width - paddingX * 2 - badgeReservedWidth)),
+        rect.x + paddingX,
+        rect.y + paddingY
+      );
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+      ctx.font = `600 ${labelFontSize}px system-ui`;
+      ctx.fillText(card.type.toUpperCase(), rect.x + paddingX, rect.y + paddingY + titleFontSize + 4);
+
+      if (card.type === "note") {
+        drawBadge(`${parseNoteItemCount(card.content)}`, rect.x + rect.width - paddingX, rect.y + paddingY - 2, "rgba(139, 92, 246, 0.16)", "#d8b4fe");
+      } else if (card.type === "agent") {
+        drawAgentStatusBadge(card.meta.status || "idle", rect.x + rect.width - paddingX, rect.y + paddingY - 2);
+      }
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+      ctx.font = `${bodyFontSize}px system-ui`;
+      const wrappedLines = buildWrappedLines(preview, Math.max(24, rect.width - paddingX * 2), maxLines);
+      for (let index = 0; index < wrappedLines.length; index += 1) {
+        ctx.fillText(wrappedLines[index], rect.x + paddingX, bodyTop + index * bodyLineHeight);
+      }
+      ctx.restore();
+
+      drawPort(card, "input");
+      drawPort(card, "output");
+    }
+
+    function drawPort(card, kind) {
+      const port = getPortScreenPosition(card, kind);
+      const radius = getPortVisualRadius(card.id, kind);
+      const color = getCardColor(card.type);
+      const hovered = hover.cardId === card.id && hover.kind === kind;
+
+      ctx.save();
+      if (hovered) {
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = `${color}aa`;
+      }
+      ctx.beginPath();
+      ctx.arc(port.x, port.y, radius, 0, Math.PI * 2);
+      if (kind === "output") {
+        ctx.fillStyle = color;
+        ctx.fill();
+      } else {
+        ctx.fillStyle = "#17171a";
+        ctx.fill();
+      }
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateHud() {
+      const nextText = `缩放 ${Math.round(state.camera.zoom * 100)}% · ${state.cards.length} 张卡片`;
+      if (nextText !== hudText) {
+        hudText = nextText;
+        hud.textContent = nextText;
+      }
+    }
+
+    function render(timestamp) {
+      ctx.setTransform(viewport.dpr, 0, 0, viewport.dpr, 0, 0);
+      ctx.clearRect(0, 0, viewport.width, viewport.height);
+      ctx.fillStyle = "#0f0f0f";
+      ctx.fillRect(0, 0, viewport.width, viewport.height);
+
+      drawGrid();
+      drawPipes(timestamp);
+      for (const card of state.cards) {
+        drawCard(card, timestamp);
+      }
+
+      updateHud();
+      requestAnimationFrame(render);
+    }
+
+    function zoomAtPoint(screenX, screenY, nextZoom) {
+      const worldPoint = screenToWorld(screenX, screenY);
+      state.camera.zoom = nextZoom;
+      state.camera.x = screenX - worldPoint.x * nextZoom;
+      state.camera.y = screenY - worldPoint.y * nextZoom;
+    }
+
+    function cancelLongPress() {
+      if (interaction.longPressTimer) {
+        window.clearTimeout(interaction.longPressTimer);
+        interaction.longPressTimer = null;
+      }
+    }
+
+    function resetInteraction() {
+      cancelLongPress();
+      interaction.mode = "idle";
+      interaction.cardId = null;
+      interaction.fromCardId = null;
+      interaction.touchId = null;
+      interaction.touchIntent = null;
+      interaction.dragOffsetWorldX = 0;
+      interaction.dragOffsetWorldY = 0;
+      interaction.moved = false;
+      updateCursor(interaction.pointerX, interaction.pointerY);
+    }
+
+    function buildTouchIntent(clientX, clientY) {
+      const portHit = hitTestPort(clientX, clientY);
+      if (portHit) {
+        return { kind: "port", portHit };
+      }
+
+      const cardHit = hitTestCard(clientX, clientY);
+      if (cardHit) {
+        const worldPoint = screenToWorld(clientX, clientY);
+        const cardRect = getCardWorldRect(cardHit);
+        return {
+          kind: "card",
+          cardId: cardHit.id,
+          dragOffsetWorldX: worldPoint.x - cardRect.x,
+          dragOffsetWorldY: worldPoint.y - cardRect.y,
+        };
+      }
+
+      const pipeHit = hitTestPipe(clientX, clientY);
+      if (pipeHit) {
+        return { kind: "pipe", pipeId: pipeHit.id };
+      }
+
+      return { kind: "canvas" };
+    }
+
+    function scheduleTouchLongPress(clientX, clientY, intent) {
+      cancelLongPress();
+      interaction.longPressTimer = window.setTimeout(() => {
+        if (interaction.mode !== "touch-pending") {
+          return;
+        }
+        const worldPoint = screenToWorld(clientX, clientY);
+        const gridPosition = {
+          x: snapGrid(worldPoint.x / GRID_SIZE),
+          y: snapGrid(worldPoint.y / GRID_SIZE),
+        };
+        const cardId = intent.kind === "card" ? intent.cardId : null;
+        if (cardId) {
+          selectCard(cardId);
+        } else if (intent.kind !== "pipe") {
+          clearSelection();
+        }
+        showContextMenu(clientX, clientY, gridPosition, cardId);
+        resetInteraction();
+      }, LONG_PRESS_MS);
+    }
+
+    function startPan(clientX, clientY) {
+      interaction.mode = "pan";
+      interaction.startScreenX = clientX;
+      interaction.startScreenY = clientY;
+      interaction.startCameraX = state.camera.x;
+      interaction.startCameraY = state.camera.y;
+      updateCursor(clientX, clientY);
+    }
+
+    function startCardDrag(cardId, clientX, clientY, dragOffsetWorldX, dragOffsetWorldY) {
+      bringCardToFront(cardId);
+      selectCard(cardId);
+      interaction.mode = "drag-card";
+      interaction.cardId = cardId;
+      interaction.dragOffsetWorldX = dragOffsetWorldX;
+      interaction.dragOffsetWorldY = dragOffsetWorldY;
+      updateDraggedCardPosition(clientX, clientY);
+      updateCursor(clientX, clientY);
+    }
+
+    function startConnection(cardId, clientX, clientY) {
+      selectCard(cardId);
+      interaction.mode = "connect";
+      interaction.fromCardId = cardId;
+      interaction.pointerX = clientX;
+      interaction.pointerY = clientY;
+      updateCursor(clientX, clientY);
+    }
+
+    function updateDraggedCardPosition(clientX, clientY) {
+      if (!interaction.cardId) {
+        return;
+      }
+      const card = getCardById(interaction.cardId);
+      if (!card) {
+        return;
+      }
+      const worldPoint = screenToWorld(clientX, clientY);
+      const nextWorldX = worldPoint.x - interaction.dragOffsetWorldX;
+      const nextWorldY = worldPoint.y - interaction.dragOffsetWorldY;
+      card.position.x = snapGrid(nextWorldX / GRID_SIZE);
+      card.position.y = snapGrid(nextWorldY / GRID_SIZE);
+    }
+
+    function handleMouseDown(event) {
+      if (event.button !== 0 || !editorOverlay.classList.contains("hidden")) {
+        return;
+      }
+
+      hideContextMenu();
+      interaction.pointerX = event.clientX;
+      interaction.pointerY = event.clientY;
+      interaction.moved = false;
+
+      const portHit = hitTestPort(event.clientX, event.clientY);
+      if (portHit?.kind === "output") {
+        startConnection(portHit.card.id, event.clientX, event.clientY);
+        return;
+      }
+      if (portHit?.kind === "input") {
+        selectCard(portHit.card.id);
+        updateCursor(event.clientX, event.clientY);
+        return;
+      }
+
+      const cardHit = hitTestCard(event.clientX, event.clientY);
+      if (cardHit) {
+        const worldPoint = screenToWorld(event.clientX, event.clientY);
+        const cardRect = getCardWorldRect(cardHit);
+        startCardDrag(
+          cardHit.id,
+          event.clientX,
+          event.clientY,
+          worldPoint.x - cardRect.x,
+          worldPoint.y - cardRect.y
+        );
+        return;
+      }
+
+      const pipeHit = hitTestPipe(event.clientX, event.clientY);
+      if (pipeHit) {
+        selectPipe(pipeHit.id);
+        updateCursor(event.clientX, event.clientY);
+        return;
+      }
+
+      clearSelection();
+      startPan(event.clientX, event.clientY);
+    }
+
+    function handleMouseMove(event) {
+      interaction.pointerX = event.clientX;
+      interaction.pointerY = event.clientY;
+
+      if (interaction.mode === "pan") {
+        interaction.moved = interaction.moved || Math.hypot(event.clientX - interaction.startScreenX, event.clientY - interaction.startScreenY) > 2;
+        state.camera.x = interaction.startCameraX + (event.clientX - interaction.startScreenX);
+        state.camera.y = interaction.startCameraY + (event.clientY - interaction.startScreenY);
+        updateCursor(event.clientX, event.clientY);
+        return;
+      }
+
+      if (interaction.mode === "drag-card") {
+        interaction.moved = true;
+        updateDraggedCardPosition(event.clientX, event.clientY);
+        updateCursor(event.clientX, event.clientY);
+        return;
+      }
+
+      if (interaction.mode === "connect") {
+        updateCursor(event.clientX, event.clientY);
+        return;
+      }
+
+      updateCursor(event.clientX, event.clientY);
+    }
+
+    function completeConnectionAt(clientX, clientY) {
+      if (interaction.mode !== "connect" || !interaction.fromCardId) {
+        return;
+      }
+      const portHit = hitTestPort(clientX, clientY);
+      if (portHit?.kind === "input") {
+        const pipe = createPipe(interaction.fromCardId, portHit.card.id);
+        if (pipe) {
+          selectPipe(pipe.id);
+        }
+      }
+    }
+
+    function handleMouseUp(event) {
+      if (interaction.mode === "connect") {
+        completeConnectionAt(event.clientX, event.clientY);
+      } else if (interaction.mode === "pan" || interaction.mode === "drag-card") {
+        if (interaction.mode === "pan" && !interaction.moved) {
+          clearSelection();
+        }
+        scheduleSave();
+      }
+
+      resetInteraction();
+    }
+
+    function handleContextMenu(event) {
+      if (!editorOverlay.classList.contains("hidden")) {
+        return;
+      }
+
+      event.preventDefault();
+      const card = hitTestCard(event.clientX, event.clientY);
+      if (card) {
+        selectCard(card.id);
+      }
+      const worldPoint = screenToWorld(event.clientX, event.clientY);
+      const gridPosition = {
+        x: snapGrid(worldPoint.x / GRID_SIZE),
+        y: snapGrid(worldPoint.y / GRID_SIZE),
+      };
+      showContextMenu(event.clientX, event.clientY, gridPosition, card?.id || null);
+    }
+
+    function handleDoubleClick(event) {
+      if (!editorOverlay.classList.contains("hidden")) {
+        return;
+      }
+      const card = hitTestCard(event.clientX, event.clientY);
+      if (card?.type === "markdown") {
+        selectCard(card.id);
+        openEditor(card);
+      }
+    }
+
+    function handleWheel(event) {
+      if (!editorOverlay.classList.contains("hidden")) {
+        return;
+      }
+
+      event.preventDefault();
+      hideContextMenu();
+      const oldZoom = state.camera.zoom;
+      const zoomFactor = Math.exp(-event.deltaY * 0.001);
+      const nextZoom = clamp(oldZoom * zoomFactor, MIN_ZOOM, MAX_ZOOM);
+      if (nextZoom === oldZoom) {
+        return;
+      }
+      zoomAtPoint(event.clientX, event.clientY, nextZoom);
+      scheduleSave();
+    }
+
+    function getTouchById(touchList, touchId) {
+      for (const touch of touchList) {
+        if (touch.identifier === touchId) {
+          return touch;
+        }
+      }
+      return null;
+    }
+
+    function startPinchFromTouches(touchA, touchB) {
+      cancelLongPress();
+      interaction.mode = "pinch";
+      interaction.touchId = null;
+      interaction.touchIntent = null;
+      interaction.startCameraX = state.camera.x;
+      interaction.startCameraY = state.camera.y;
+      interaction.startZoom = state.camera.zoom;
+      interaction.startScreenX = (touchA.clientX + touchB.clientX) / 2;
+      interaction.startScreenY = (touchA.clientY + touchB.clientY) / 2;
+      interaction.pinchStartDistance = Math.max(
+        1,
+        Math.hypot(touchA.clientX - touchB.clientX, touchA.clientY - touchB.clientY)
+      );
+      const pinchWorld = screenToWorldWithCamera(interaction.startScreenX, interaction.startScreenY, {
+        x: interaction.startCameraX,
+        y: interaction.startCameraY,
+        zoom: interaction.startZoom,
+      });
+      interaction.pinchWorldX = pinchWorld.x;
+      interaction.pinchWorldY = pinchWorld.y;
+      updateCursor(interaction.startScreenX, interaction.startScreenY);
+    }
+
+    function updatePinchFromTouches(touchA, touchB) {
+      const midpointX = (touchA.clientX + touchB.clientX) / 2;
+      const midpointY = (touchA.clientY + touchB.clientY) / 2;
+      const distance = Math.max(1, Math.hypot(touchA.clientX - touchB.clientX, touchA.clientY - touchB.clientY));
+      const nextZoom = clamp(interaction.startZoom * (distance / interaction.pinchStartDistance), MIN_ZOOM, MAX_ZOOM);
+      state.camera.zoom = nextZoom;
+      state.camera.x = midpointX - interaction.pinchWorldX * nextZoom;
+      state.camera.y = midpointY - interaction.pinchWorldY * nextZoom;
+      interaction.pointerX = midpointX;
+      interaction.pointerY = midpointY;
+      updateCursor(midpointX, midpointY);
+    }
+
+    function handleTouchStart(event) {
+      if (!editorOverlay.classList.contains("hidden")) {
+        return;
+      }
+
+      if (event.touches.length === 2) {
+        event.preventDefault();
+        hideContextMenu();
+        startPinchFromTouches(event.touches[0], event.touches[1]);
+        return;
+      }
+
+      if (event.touches.length !== 1) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      event.preventDefault();
+      hideContextMenu();
+      interaction.pointerX = touch.clientX;
+      interaction.pointerY = touch.clientY;
+      interaction.startScreenX = touch.clientX;
+      interaction.startScreenY = touch.clientY;
+      interaction.touchId = touch.identifier;
+      interaction.moved = false;
+
+      const intent = buildTouchIntent(touch.clientX, touch.clientY);
+      if (intent.kind === "port") {
+        if (intent.portHit.kind === "output") {
+          startConnection(intent.portHit.card.id, touch.clientX, touch.clientY);
+        } else {
+          selectCard(intent.portHit.card.id);
+          updateCursor(touch.clientX, touch.clientY);
+        }
+        interaction.touchId = touch.identifier;
+        return;
+      }
+
+      interaction.mode = "touch-pending";
+      interaction.touchIntent = intent;
+      scheduleTouchLongPress(touch.clientX, touch.clientY, intent);
+      updateCursor(touch.clientX, touch.clientY);
+    }
+
+    function handleTouchMove(event) {
+      if (!editorOverlay.classList.contains("hidden")) {
+        return;
+      }
+
+      if (event.touches.length === 2) {
+        event.preventDefault();
+        if (interaction.mode !== "pinch") {
+          startPinchFromTouches(event.touches[0], event.touches[1]);
+        }
+        updatePinchFromTouches(event.touches[0], event.touches[1]);
+        return;
+      }
+
+      const touch = getTouchById(event.touches, interaction.touchId);
+      if (!touch) {
+        return;
+      }
+
+      event.preventDefault();
+      interaction.pointerX = touch.clientX;
+      interaction.pointerY = touch.clientY;
+
+      if (interaction.mode === "touch-pending") {
+        const distance = Math.hypot(touch.clientX - interaction.startScreenX, touch.clientY - interaction.startScreenY);
+        if (distance > TAP_MOVE_THRESHOLD) {
+          interaction.moved = true;
+          cancelLongPress();
+          const intent = interaction.touchIntent;
+          if (intent?.kind === "card") {
+            startCardDrag(intent.cardId, touch.clientX, touch.clientY, intent.dragOffsetWorldX, intent.dragOffsetWorldY);
+          } else {
+            startPan(interaction.startScreenX, interaction.startScreenY);
+            state.camera.x = interaction.startCameraX + (touch.clientX - interaction.startScreenX);
+            state.camera.y = interaction.startCameraY + (touch.clientY - interaction.startScreenY);
+          }
+        }
+        return;
+      }
+
+      if (interaction.mode === "pan") {
+        interaction.moved = true;
+        state.camera.x = interaction.startCameraX + (touch.clientX - interaction.startScreenX);
+        state.camera.y = interaction.startCameraY + (touch.clientY - interaction.startScreenY);
+        updateCursor(touch.clientX, touch.clientY);
+        return;
+      }
+
+      if (interaction.mode === "drag-card") {
+        interaction.moved = true;
+        updateDraggedCardPosition(touch.clientX, touch.clientY);
+        updateCursor(touch.clientX, touch.clientY);
+        return;
+      }
+
+      if (interaction.mode === "connect") {
+        updateCursor(touch.clientX, touch.clientY);
+      }
+    }
+
+    function handleTapEnd(clientX, clientY) {
+      const intent = interaction.touchIntent;
+      if (!intent) {
+        return;
+      }
+
+      if (intent.kind === "card" && intent.cardId) {
+        const card = getCardById(intent.cardId);
+        if (!card) {
+          return;
+        }
+        selectCard(card.id);
+        const isDoubleTap =
+          card.type === "markdown" &&
+          lastTap.cardId === card.id &&
+          performance.now() - lastTap.time <= DOUBLE_TAP_MS &&
+          Math.hypot(clientX - lastTap.x, clientY - lastTap.y) <= 20;
+        if (isDoubleTap) {
+          lastTap.time = 0;
+          openEditor(card);
+          return;
+        }
+        lastTap = {
+          time: performance.now(),
+          cardId: card.id,
+          x: clientX,
+          y: clientY,
+        };
+        return;
+      }
+
+      if (intent.kind === "pipe" && intent.pipeId) {
+        selectPipe(intent.pipeId);
+        lastTap.time = 0;
+        return;
+      }
+
+      clearSelection();
+      lastTap.time = 0;
+    }
+
+    function handleTouchEnd(event) {
+      if (interaction.mode === "pinch") {
+        if (event.touches.length < 2) {
+          scheduleSave();
+          resetInteraction();
+        }
+        return;
+      }
+
+      const touch = getTouchById(event.changedTouches, interaction.touchId);
+      if (!touch) {
+        return;
+      }
+
+      event.preventDefault();
+      interaction.pointerX = touch.clientX;
+      interaction.pointerY = touch.clientY;
+      cancelLongPress();
+
+      if (interaction.mode === "connect") {
+        completeConnectionAt(touch.clientX, touch.clientY);
+      } else if (interaction.mode === "touch-pending" && !interaction.moved) {
+        handleTapEnd(touch.clientX, touch.clientY);
+      } else if (interaction.mode === "pan" || interaction.mode === "drag-card") {
+        scheduleSave();
+      }
+
+      resetInteraction();
+    }
+
+    function handleTouchCancel() {
+      if (interaction.mode === "pinch" || interaction.mode === "pan" || interaction.mode === "drag-card") {
+        scheduleSave();
+      }
+      resetInteraction();
+    }
+
+    function deleteSelection() {
+      if (selection.type === "card" && selection.id) {
+        deleteCard(selection.id);
+        return true;
+      }
+      if (selection.type === "pipe" && selection.id) {
+        deletePipe(selection.id);
+        return true;
+      }
+      return false;
+    }
+
+    function handleWindowKeyDown(event) {
+      const targetTag = event.target?.tagName?.toLowerCase();
+      const isTextInput = targetTag === "textarea" || targetTag === "input";
+
+      if (event.key === "Escape") {
+        if (!editorOverlay.classList.contains("hidden")) {
+          closeEditor(false);
+          return;
+        }
+        hideContextMenu();
+        if (interaction.mode === "connect") {
+          resetInteraction();
+        }
+      }
+
+      if (!editorOverlay.classList.contains("hidden") && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        closeEditor(true);
+        return;
+      }
+
+      if (!editorOverlay.classList.contains("hidden") || isTextInput) {
+        return;
+      }
+
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (deleteSelection()) {
+          event.preventDefault();
+        }
+      }
+    }
+
+    contextMenu.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button || !contextMenuState) {
+        return;
+      }
+
+      if (button.dataset.action === "create") {
+        const card = createCard(button.dataset.cardType, contextMenuState.gridPosition);
+        hideContextMenu();
+        if (card.type === "markdown") {
+          openEditor(card);
+        }
+        return;
+      }
+
+      if (button.dataset.action === "delete-card" && contextMenuState.cardId) {
+        deleteCard(contextMenuState.cardId);
+      }
+    });
+
+    editorOverlay.addEventListener("mousedown", (event) => {
+      if (event.target === editorOverlay) {
+        closeEditor(false);
+      }
+    });
+
+    editorOverlay.addEventListener("touchstart", (event) => {
+      if (event.target === editorOverlay) {
+        closeEditor(false);
+      }
+    }, { passive: true });
+
+    saveEditorButton.addEventListener("click", () => closeEditor(true));
+    cancelEditorButton.addEventListener("click", () => closeEditor(false));
+
+    editorText.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        closeEditor(true);
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeEditor(false);
+      }
+    });
+
+    canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("dblclick", handleDoubleClick);
+    canvas.addEventListener("contextmenu", handleContextMenu);
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
+    canvas.addEventListener("touchcancel", handleTouchCancel, { passive: false });
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("keydown", handleWindowKeyDown);
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("beforeunload", saveState);
+    window.addEventListener("mousedown", (event) => {
+      if (!contextMenu.contains(event.target)) {
+        hideContextMenu();
+      }
+    });
+    window.addEventListener("touchstart", (event) => {
+      if (!contextMenu.contains(event.target)) {
+        hideContextMenu();
+      }
+    }, { passive: true });
+
+    resizeCanvas();
+    updateCursor(0, 0);
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
