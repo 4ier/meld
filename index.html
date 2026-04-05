@@ -587,8 +587,8 @@
     const STORAGE_KEY = "meld-mvp-canvas-v1";
     const STORAGE_FALLBACK_KEYS = ["meld-mvp-canvas-v2"];
     const GATEWAY_SETTINGS_KEY = "meld-openclaw-gateway-v1";
-    const GRID_SIZE = 40;
-    const DEFAULT_CARD_SIZE = { w: 2, h: 3 };
+    const GRID_SIZE = 60;
+    const DEFAULT_CARD_SIZE = { w: 4, h: 5 };
     const CARD_TYPES = ["markdown", "file", "agent", "note"];
     const AGENT_STATUSES = ["idle", "running", "paused"];
     const GATEWAY_STATUSES = ["disconnected", "connecting", "connected", "error"];
@@ -963,7 +963,13 @@
     }
 
     function findAgentCardBySessionKey(sessionKey) {
-      return state.cards.find((card) => card.type === "agent" && card.meta?.sessionKey === sessionKey) || null;
+      if (!sessionKey) return null;
+      return state.cards.find((card) => {
+        if (card.type !== "agent" || !card.meta?.sessionKey) return false;
+        const cardKey = card.meta.sessionKey;
+        // Match exact or with gateway prefix (agent:main:xxx)
+        return cardKey === sessionKey || sessionKey.endsWith(cardKey) || sessionKey === `agent:main:${cardKey}`;
+      }) || null;
     }
 
     function sanitizeUserMessageForDisplay(content) {
@@ -1405,19 +1411,26 @@
           return;
         }
         const session = getAgentSessionState(card.id);
-        const content =
-          typeof chatData.content === "string"
-            ? chatData.content
-            : typeof chatData.delta === "string"
-              ? chatData.delta
-              : "";
-        if (chatData.role === "assistant") {
+        const msg = chatData.message || {};
+        // Extract text content from message.content (can be string or array of {type,text})
+        let content = "";
+        if (typeof msg.content === "string") {
+          content = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          content = msg.content
+            .filter(c => c && c.type === "text" && typeof c.text === "string")
+            .map(c => c.text)
+            .join("");
+        }
+        const role = msg.role || chatData.role || "";
+        const isFinal = chatData.state === "final" || chatData.state === "complete" || chatData.done === true;
+        if (role === "assistant" && content) {
           if (!session.currentRequestToken && card.meta.status !== "running") {
             return;
           }
           setAgentStatus(card, "running");
           upsertStreamingAssistantMessage(card.id, content);
-          if (chatData.done === true || chatData.final === true) {
+          if (isFinal) {
             scheduleAgentRunCompletion(card, session.currentRequestToken, 0);
           } else if (session.responseReceived && session.currentRequestToken) {
             scheduleAgentRunCompletion(card, session.currentRequestToken, 180);
