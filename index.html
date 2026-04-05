@@ -1257,9 +1257,10 @@
       try {
         const socket = new WebSocket(gateway.settings.url);
         gateway.socket = socket;
-        socket.addEventListener("open", () => {
-          const connectId = createId();
-          gateway.pending.set(connectId, {
+
+        // Prepare connect request (sent after challenge)
+        const connectId = createId();
+        gateway.pending.set(connectId, {
             method: "connect",
             resolve: () => {
               setGatewayStatus("connected");
@@ -1279,6 +1280,8 @@
               }
             },
           });
+
+        function sendConnectRequest() {
           gateway.connectTimeoutId = window.setTimeout(() => {
             if (gateway.pending.has(connectId)) {
               gateway.pending.get(connectId).reject(new Error("connect 握手超时"));
@@ -1303,12 +1306,20 @@
                   platform: "web",
                   mode: "webchat",
                 },
-                role: "user",
+                role: "operator",
+                scopes: ["operator.admin", "operator.read", "operator.write"],
                 caps: ["tool-events"],
                 userAgent: navigator.userAgent,
               },
             })
           );
+        }
+
+        // Gateway sends connect.challenge first; wait for it before sending connect
+        gateway._sendConnect = sendConnectRequest;
+
+        socket.addEventListener("open", () => {
+          // Don't send connect yet — wait for connect.challenge event
         });
         socket.addEventListener("message", handleGatewayMessage);
         socket.addEventListener("close", () => {
@@ -1359,6 +1370,16 @@
       if (!payload || typeof payload !== "object") {
         return;
       }
+
+      // Handle connect.challenge — gateway sends this before accepting connect
+      if ((payload.type === "event" || payload.type === "evt") && payload.event === "connect.challenge") {
+        if (gateway._sendConnect) {
+          gateway._sendConnect();
+          gateway._sendConnect = null;
+        }
+        return;
+      }
+
       if (payload.type === "res" && typeof payload.id === "string") {
         const pending = gateway.pending.get(payload.id);
         if (!pending) {
@@ -1369,32 +1390,34 @@
           window.clearTimeout(gateway.connectTimeoutId);
           gateway.connectTimeoutId = null;
         }
-        if (payload.error) {
-          pending.reject(new Error(payload.error.message || payload.error || "请求失败"));
+        if (payload.ok === false || payload.error) {
+          const errMsg = payload.error?.message || payload.error || "请求失败";
+          pending.reject(new Error(errMsg));
           return;
         }
-        pending.resolve(payload.result);
+        pending.resolve(payload.payload || payload.result);
         return;
       }
-      if (payload.type === "evt" && payload.event === "chat" && payload.data) {
-        const card = findAgentCardBySessionKey(payload.data.sessionKey);
+      if ((payload.type === "evt" || payload.type === "event") && payload.event === "chat" && (payload.data || payload.payload)) {
+        const chatData = payload.data || payload.payload;
+        const card = findAgentCardBySessionKey(chatData.sessionKey);
         if (!card) {
           return;
         }
         const session = getAgentSessionState(card.id);
         const content =
-          typeof payload.data.content === "string"
-            ? payload.data.content
-            : typeof payload.data.delta === "string"
-              ? payload.data.delta
+          typeof chatData.content === "string"
+            ? chatData.content
+            : typeof chatData.delta === "string"
+              ? chatData.delta
               : "";
-        if (payload.data.role === "assistant") {
+        if (chatData.role === "assistant") {
           if (!session.currentRequestToken && card.meta.status !== "running") {
             return;
           }
           setAgentStatus(card, "running");
           upsertStreamingAssistantMessage(card.id, content);
-          if (payload.data.done === true || payload.data.final === true) {
+          if (chatData.done === true || chatData.final === true) {
             scheduleAgentRunCompletion(card, session.currentRequestToken, 0);
           } else if (session.responseReceived && session.currentRequestToken) {
             scheduleAgentRunCompletion(card, session.currentRequestToken, 180);
