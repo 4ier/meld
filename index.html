@@ -186,10 +186,327 @@
       backdrop-filter: blur(10px);
       pointer-events: none;
     }
+
+    #topbar {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 24;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .icon-button {
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      background: rgba(22, 22, 24, 0.82);
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(12px);
+    }
+
+    .icon-button:hover {
+      background: rgba(34, 34, 38, 0.92);
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+    }
+
+    .status-dot.disconnected {
+      background: #ef4444;
+    }
+
+    .status-dot.connecting {
+      background: #f59e0b;
+    }
+
+    .status-dot.connected {
+      background: #22c55e;
+    }
+
+    .status-dot.error {
+      background: #ef4444;
+    }
+
+    #settings-toggle {
+      gap: 8px;
+      padding: 0 12px;
+      width: auto;
+      min-width: 40px;
+    }
+
+    #settings-toggle .gear {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    #settings-panel {
+      top: 64px;
+      right: 16px;
+      z-index: 24;
+      width: 320px;
+      padding: 14px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .panel-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .panel-field input,
+    .panel-field textarea,
+    #agent-chat-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(10, 10, 12, 0.8);
+      color: var(--text-primary);
+      outline: none;
+      font: 13px/1.5 Inter, system-ui, sans-serif;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .panel-field input:focus,
+    .panel-field textarea:focus,
+    #agent-chat-input:focus {
+      border-color: rgba(96, 165, 250, 0.75);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+    }
+
+    .panel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .panel-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .panel-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .panel-actions button,
+    .chat-action-button {
+      padding: 9px 12px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .panel-actions button.secondary,
+    .chat-action-button.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    .panel-actions button.primary,
+    .chat-action-button.primary {
+      background: #ffffff;
+      color: #111111;
+      font-weight: 600;
+    }
+
+    .chat-action-button.warn {
+      background: rgba(245, 158, 11, 0.14);
+      color: #fbbf24;
+    }
+
+    #agent-chat-panel {
+      z-index: 26;
+      width: 400px;
+      height: 500px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #agent-chat-panel.hidden {
+      display: none;
+    }
+
+    #agent-chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 14px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #agent-chat-title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    #agent-chat-title strong {
+      color: var(--text-primary);
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #agent-chat-title span {
+      color: var(--text-secondary);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #agent-chat-close {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    #agent-chat-history {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chat-empty {
+      margin: auto 0;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .chat-message {
+      max-width: 88%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .chat-message.assistant {
+      align-self: flex-start;
+      background: rgba(30, 41, 59, 0.92);
+      color: rgba(255, 255, 255, 0.96);
+    }
+
+    .chat-message.user {
+      align-self: flex-end;
+      background: rgba(96, 165, 250, 0.2);
+      color: rgba(219, 234, 254, 0.98);
+      border: 1px solid rgba(96, 165, 250, 0.22);
+    }
+
+    .chat-message.meta {
+      align-self: center;
+      max-width: 100%;
+      padding: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    #agent-chat-composer {
+      padding: 12px 14px 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #agent-chat-input {
+      min-height: 92px;
+      max-height: 140px;
+      resize: vertical;
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    #agent-chat-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    #agent-chat-hint {
+      color: var(--text-secondary);
+      font-size: 12px;
+      min-width: 0;
+    }
+
+    #agent-chat-actions {
+      display: flex;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
+
+  <div id="topbar">
+    <button id="settings-toggle" class="icon-button" type="button" aria-label="Open gateway settings">
+      <span id="settings-status-dot" class="status-dot disconnected"></span>
+      <span class="gear">&#9881;</span>
+    </button>
+  </div>
 
   <div id="context-menu" class="floating-panel hidden">
     <div id="context-menu-title" class="menu-title">创建卡片</div>
@@ -215,15 +532,66 @@
     </div>
   </div>
 
+  <div id="settings-panel" class="floating-panel hidden">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">OpenClaw Gateway</div>
+        <div class="panel-subtitle">连接全局 Agent Runtime</div>
+      </div>
+      <div class="panel-status">
+        <span id="settings-panel-status-dot" class="status-dot disconnected"></span>
+        <span id="settings-panel-status-text">未连接</span>
+      </div>
+    </div>
+    <label class="panel-field">
+      <span>Gateway URL</span>
+      <input id="gateway-url-input" type="text" value="ws://127.0.0.1:18789" spellcheck="false" />
+    </label>
+    <label class="panel-field">
+      <span>Gateway Token</span>
+      <input id="gateway-token-input" type="password" placeholder="请输入 token" spellcheck="false" />
+    </label>
+    <div class="panel-row">
+      <div class="panel-subtitle" id="settings-panel-detail">握手完成后即可发送 chat 请求</div>
+      <div class="panel-actions">
+        <button id="gateway-disconnect-button" class="secondary" type="button">断开</button>
+        <button id="gateway-connect-button" class="primary" type="button">连接</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="agent-chat-panel" class="floating-panel hidden">
+    <div id="agent-chat-header">
+      <div id="agent-chat-title">
+        <strong id="agent-chat-title-text">Agent Chat</strong>
+        <span id="agent-chat-subtitle">sessionKey</span>
+      </div>
+      <button id="agent-chat-close" type="button" aria-label="Close chat">×</button>
+    </div>
+    <div id="agent-chat-history"></div>
+    <div id="agent-chat-composer">
+      <textarea id="agent-chat-input" spellcheck="false" placeholder="输入消息，Ctrl/Cmd + Enter 发送"></textarea>
+      <div id="agent-chat-footer">
+        <div id="agent-chat-hint">未连接到 Gateway</div>
+        <div id="agent-chat-actions">
+          <button id="agent-chat-stop" class="chat-action-button warn" type="button">停止</button>
+          <button id="agent-chat-send" class="chat-action-button primary" type="button">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="hud">缩放 100% · 0 张卡片</div>
 
   <script>
     const STORAGE_KEY = "meld-mvp-canvas-v1";
     const STORAGE_FALLBACK_KEYS = ["meld-mvp-canvas-v2"];
+    const GATEWAY_SETTINGS_KEY = "meld-openclaw-gateway-v1";
     const GRID_SIZE = 40;
     const DEFAULT_CARD_SIZE = { w: 2, h: 3 };
     const CARD_TYPES = ["markdown", "file", "agent", "note"];
     const AGENT_STATUSES = ["idle", "running", "paused"];
+    const GATEWAY_STATUSES = ["disconnected", "connecting", "connected", "error"];
     const MIN_ZOOM = 0.25;
     const MAX_ZOOM = 3;
     const LONG_PRESS_MS = 460;
@@ -238,8 +606,14 @@
     };
     const AGENT_STATUS_COLORS = {
       idle: "#94a3b8",
-      running: "#10b981",
-      paused: "#f59e0b",
+      running: "#f59e0b",
+      paused: "#60a5fa",
+    };
+    const GATEWAY_STATUS_COLORS = {
+      disconnected: "#ef4444",
+      connecting: "#f59e0b",
+      connected: "#22c55e",
+      error: "#ef4444",
     };
     const TYPE_LABELS = {
       markdown: "Markdown",
@@ -267,6 +641,25 @@
     const saveEditorButton = document.getElementById("save-editor");
     const cancelEditorButton = document.getElementById("cancel-editor");
     const hud = document.getElementById("hud");
+    const settingsToggle = document.getElementById("settings-toggle");
+    const settingsStatusDot = document.getElementById("settings-status-dot");
+    const settingsPanel = document.getElementById("settings-panel");
+    const settingsPanelStatusDot = document.getElementById("settings-panel-status-dot");
+    const settingsPanelStatusText = document.getElementById("settings-panel-status-text");
+    const settingsPanelDetail = document.getElementById("settings-panel-detail");
+    const gatewayUrlInput = document.getElementById("gateway-url-input");
+    const gatewayTokenInput = document.getElementById("gateway-token-input");
+    const gatewayConnectButton = document.getElementById("gateway-connect-button");
+    const gatewayDisconnectButton = document.getElementById("gateway-disconnect-button");
+    const agentChatPanel = document.getElementById("agent-chat-panel");
+    const agentChatTitleText = document.getElementById("agent-chat-title-text");
+    const agentChatSubtitle = document.getElementById("agent-chat-subtitle");
+    const agentChatHistory = document.getElementById("agent-chat-history");
+    const agentChatInput = document.getElementById("agent-chat-input");
+    const agentChatHint = document.getElementById("agent-chat-hint");
+    const agentChatSendButton = document.getElementById("agent-chat-send");
+    const agentChatStopButton = document.getElementById("agent-chat-stop");
+    const agentChatCloseButton = document.getElementById("agent-chat-close");
 
     const viewport = {
       width: window.innerWidth,
@@ -277,6 +670,7 @@
     let state = loadState();
     let saveTimer = null;
     let editorCardId = null;
+    let chatCardId = null;
     let contextMenuState = null;
     let hudText = "";
     let lastTap = {
@@ -299,6 +693,16 @@
     const effects = {
       cardEntrances: new Map(),
       pipeFlashes: new Map(),
+    };
+
+    const agentSessions = new Map();
+    const gateway = {
+      status: "disconnected",
+      socket: null,
+      pending: new Map(),
+      detail: "",
+      connectTimeoutId: null,
+      settings: loadGatewaySettings(),
     };
 
     const interaction = {
@@ -325,7 +729,7 @@
 
     function createDefaultState() {
       return {
-        version: 2,
+        version: 3,
         camera: {
           x: window.innerWidth / 2,
           y: window.innerHeight / 2,
@@ -347,9 +751,28 @@
             .filter((card) => card && typeof card === "object")
             .map((card) => {
               const type = CARD_TYPES.includes(card.type) ? card.type : "markdown";
-              const status = AGENT_STATUSES.includes(card.meta?.status) ? card.meta.status : "idle";
+              const normalizedId = typeof card.id === "string" ? card.id : createId();
+              const status = type === "agent" && card.meta?.status === "paused" ? "paused" : "idle";
+              const sessionKey =
+                type === "agent"
+                  ? typeof card.meta?.sessionKey === "string" && card.meta.sessionKey.trim()
+                    ? card.meta.sessionKey
+                    : buildAgentSessionKey(normalizedId)
+                  : null;
+              const bufferedInputs =
+                type === "agent" && Array.isArray(card.meta?.bufferedInputs)
+                  ? card.meta.bufferedInputs
+                      .filter((item) => item && typeof item === "object")
+                      .map((item) => ({
+                        id: typeof item.id === "string" ? item.id : createId(),
+                        message: typeof item.message === "string" ? item.message : "",
+                        sourceCardId: typeof item.sourceCardId === "string" ? item.sourceCardId : null,
+                        created: typeof item.created === "string" ? item.created : new Date().toISOString(),
+                      }))
+                      .filter((item) => item.message)
+                  : [];
               return {
-                id: typeof card.id === "string" ? card.id : createId(),
+                id: normalizedId,
                 type,
                 position: {
                   x: Number.isFinite(card.position?.x) ? card.position.x : 0,
@@ -370,6 +793,8 @@
                       ? card.meta.created
                       : new Date().toISOString(),
                   status,
+                  sessionKey,
+                  bufferedInputs,
                 },
               };
             })
@@ -389,7 +814,7 @@
         : [];
 
       return {
-        version: 2,
+        version: 3,
         camera: {
           x: Number.isFinite(raw.camera?.x) ? raw.camera.x : fallback.camera.x,
           y: Number.isFinite(raw.camera?.y) ? raw.camera.y : fallback.camera.y,
@@ -441,6 +866,536 @@
       return Math.min(max, Math.max(min, value));
     }
 
+    function loadGatewaySettings() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(GATEWAY_SETTINGS_KEY) || "{}");
+        return {
+          url: typeof raw.url === "string" && raw.url.trim() ? raw.url : "ws://127.0.0.1:18789",
+          token: typeof raw.token === "string" ? raw.token : "",
+        };
+      } catch (error) {
+        return {
+          url: "ws://127.0.0.1:18789",
+          token: "",
+        };
+      }
+    }
+
+    // Auto-configure from meld-config.json (server-side generated, contains gateway URL + token)
+    async function autoConfigureGateway() {
+      // Skip if user already has settings saved
+      if (gateway.settings.token) return;
+      try {
+        const resp = await fetch("meld-config.json", { cache: "no-store" });
+        if (!resp.ok) return;
+        const config = await resp.json();
+        if (config.gatewayUrl) gateway.settings.url = config.gatewayUrl;
+        if (config.gatewayToken) gateway.settings.token = config.gatewayToken;
+        localStorage.setItem(GATEWAY_SETTINGS_KEY, JSON.stringify(gateway.settings));
+        syncGatewaySettingsInputs();
+        // Auto-connect after loading config
+        connectGateway();
+      } catch (e) { /* no config file, user configures manually */ }
+    }
+
+    function saveGatewaySettings() {
+      gateway.settings.url = gatewayUrlInput.value.trim() || "ws://127.0.0.1:18789";
+      gateway.settings.token = gatewayTokenInput.value;
+      localStorage.setItem(GATEWAY_SETTINGS_KEY, JSON.stringify(gateway.settings));
+      gatewayUrlInput.value = gateway.settings.url;
+    }
+
+    function syncGatewaySettingsInputs() {
+      gatewayUrlInput.value = gateway.settings.url;
+      gatewayTokenInput.value = gateway.settings.token;
+    }
+
+    function buildAgentSessionKey(cardId) {
+      return `meld-agent-${String(cardId || "").slice(0, 8) || "session"}`;
+    }
+
+    function getGatewayStatusLabel(status) {
+      switch (status) {
+        case "connected":
+          return "已连接";
+        case "connecting":
+          return "连接中";
+        case "error":
+          return "连接异常";
+        default:
+          return "未连接";
+      }
+    }
+
+    function updateStatusDot(element, status) {
+      for (const name of GATEWAY_STATUSES) {
+        element.classList.remove(name);
+      }
+      element.classList.add(status);
+    }
+
+    function getAgentSessionState(cardId) {
+      if (!agentSessions.has(cardId)) {
+        agentSessions.set(cardId, {
+          messages: [],
+          historyLoaded: false,
+          historyLoading: false,
+          currentRequestToken: null,
+          currentAssistantMessageId: null,
+          currentAssistantText: "",
+          responseReceived: false,
+          streamFinalizeTimer: null,
+          abortRequested: false,
+        });
+      }
+      return agentSessions.get(cardId);
+    }
+
+    function getAgentUpstreamCards(cardId) {
+      return state.pipes
+        .filter((pipe) => pipe.active !== false && pipe.to === cardId)
+        .map((pipe) => getCardById(pipe.from))
+        .filter(Boolean);
+    }
+
+    function getAgentDownstreamPipes(cardId) {
+      return state.pipes.filter((pipe) => pipe.active !== false && pipe.from === cardId);
+    }
+
+    function findAgentCardBySessionKey(sessionKey) {
+      return state.cards.find((card) => card.type === "agent" && card.meta?.sessionKey === sessionKey) || null;
+    }
+
+    function sanitizeUserMessageForDisplay(content) {
+      if (typeof content !== "string") {
+        return "";
+      }
+      const marker = "[User message]";
+      const index = content.lastIndexOf(marker);
+      if (index >= 0) {
+        return content.slice(index + marker.length).trim();
+      }
+      return content.trim();
+    }
+
+    function normalizeHistoryMessages(result) {
+      const list = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.messages)
+          ? result.messages
+          : Array.isArray(result?.items)
+            ? result.items
+            : Array.isArray(result?.history)
+              ? result.history
+              : [];
+      return list
+        .filter((item) => item && typeof item === "object")
+        .map((item) => ({
+          id: typeof item.id === "string" ? item.id : createId(),
+          role: item.role === "assistant" ? "assistant" : item.role === "user" ? "user" : "meta",
+          content:
+            item.role === "user"
+              ? sanitizeUserMessageForDisplay(typeof item.content === "string" ? item.content : "")
+              : typeof item.content === "string"
+                ? item.content
+                : JSON.stringify(item.content ?? "", null, 2),
+        }));
+    }
+
+    function mergeStreamContent(existing, incoming) {
+      if (!incoming) {
+        return existing;
+      }
+      if (!existing) {
+        return incoming;
+      }
+      if (incoming.startsWith(existing)) {
+        return incoming;
+      }
+      const overlap = Math.min(existing.length, incoming.length);
+      for (let index = overlap; index > 0; index -= 1) {
+        if (existing.endsWith(incoming.slice(0, index))) {
+          return existing + incoming.slice(index);
+        }
+      }
+      return existing + incoming;
+    }
+
+    function setGatewayStatus(status, detail = "") {
+      gateway.status = status;
+      gateway.detail = detail;
+      updateGatewayUi();
+      if (chatCardId) {
+        renderAgentChat();
+      }
+    }
+
+    function updateGatewayUi() {
+      const label = getGatewayStatusLabel(gateway.status);
+      updateStatusDot(settingsStatusDot, gateway.status);
+      updateStatusDot(settingsPanelStatusDot, gateway.status);
+      settingsPanelStatusText.textContent = label;
+      settingsPanelDetail.textContent =
+        gateway.detail ||
+        (gateway.status === "connected"
+          ? "connect 握手完成，可以发送 chat.send / chat.history"
+          : gateway.status === "connecting"
+            ? "正在建立 WebSocket 并等待 connect 响应"
+            : "设置会保存在本地，适合手机和桌面复用");
+      gatewayConnectButton.disabled = gateway.status === "connecting" || gateway.status === "connected";
+      gatewayDisconnectButton.disabled = gateway.status === "disconnected";
+      if (chatCardId) {
+        const chatCard = getCardById(chatCardId);
+        const paused = chatCard?.meta?.status === "paused";
+        const running = chatCard?.meta?.status === "running";
+        agentChatHint.textContent = paused
+          ? "当前 Agent 已暂停，恢复后再发送"
+          : running
+            ? "Agent 正在回复中"
+            : label === "已连接"
+              ? "Ctrl/Cmd + Enter 发送"
+              : "请先连接到 Gateway";
+        agentChatSendButton.disabled = paused || gateway.status !== "connected" || !chatCard;
+        agentChatStopButton.disabled = !running || gateway.status !== "connected";
+      }
+    }
+
+    function positionAgentChatPanel(card) {
+      if (!card) {
+        return;
+      }
+      const rect = getCardScreenRect(card);
+      const panelWidth = 400;
+      const panelHeight = 500;
+      const preferredRight = rect.x + rect.width + 16;
+      const preferredLeft = rect.x - panelWidth - 16;
+      const left = preferredRight + panelWidth <= viewport.width - 16 ? preferredRight : preferredLeft >= 16 ? preferredLeft : clamp(rect.x, 16, viewport.width - panelWidth - 16);
+      const top = clamp(rect.y, 16, viewport.height - panelHeight - 16);
+      agentChatPanel.style.left = `${left}px`;
+      agentChatPanel.style.top = `${top}px`;
+    }
+
+    function renderAgentChat(scrollToBottom = false) {
+      const card = getCardById(chatCardId);
+      if (!card || card.type !== "agent") {
+        agentChatPanel.classList.add("hidden");
+        return;
+      }
+      const session = getAgentSessionState(card.id);
+      const before = agentChatHistory.scrollHeight - agentChatHistory.scrollTop - agentChatHistory.clientHeight;
+      agentChatTitleText.textContent = card.meta.title || TYPE_LABELS.agent;
+      agentChatSubtitle.textContent = `${card.meta.sessionKey} · ${getGatewayStatusLabel(gateway.status)} · ${card.meta.status}`;
+      positionAgentChatPanel(card);
+      if (!session.messages.length) {
+        agentChatHistory.innerHTML = '<div class="chat-empty">双击 Agent 卡片后即可在这里聊天。</div>';
+      } else {
+        agentChatHistory.innerHTML = session.messages
+          .map(
+            (message) =>
+              `<div class="chat-message ${message.role}">${escapeHtml(message.content || (message.role === "assistant" ? "..." : ""))}</div>`
+          )
+          .join("");
+      }
+      const shouldStick = scrollToBottom || before < 48;
+      if (shouldStick) {
+        agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
+      }
+      updateGatewayUi();
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function appendSessionMessage(cardId, message) {
+      const session = getAgentSessionState(cardId);
+      session.messages.push({
+        id: message.id || createId(),
+        role: message.role,
+        content: message.content || "",
+      });
+      if (chatCardId === cardId) {
+        renderAgentChat(true);
+      }
+    }
+
+    function upsertStreamingAssistantMessage(cardId, content) {
+      const session = getAgentSessionState(cardId);
+      if (!session.currentAssistantMessageId) {
+        session.currentAssistantMessageId = createId();
+        session.messages.push({
+          id: session.currentAssistantMessageId,
+          role: "assistant",
+          content: "",
+        });
+      }
+      session.currentAssistantText = mergeStreamContent(session.currentAssistantText, content || "");
+      const target = session.messages.find((message) => message.id === session.currentAssistantMessageId);
+      if (target) {
+        target.content = session.currentAssistantText;
+      }
+      if (chatCardId === cardId) {
+        renderAgentChat(true);
+      }
+    }
+
+    function finalizeStreamingAssistant(cardId) {
+      const session = getAgentSessionState(cardId);
+      const finalText = session.currentAssistantText.trim();
+      session.currentAssistantMessageId = null;
+      session.currentAssistantText = "";
+      return finalText;
+    }
+
+    function scheduleAgentRunCompletion(card, requestToken, delay = 180) {
+      const session = getAgentSessionState(card.id);
+      if (session.streamFinalizeTimer) {
+        window.clearTimeout(session.streamFinalizeTimer);
+      }
+      session.streamFinalizeTimer = window.setTimeout(() => {
+        if (session.currentRequestToken === requestToken) {
+          completeAgentRun(card, { propagate: !session.abortRequested });
+        }
+      }, delay);
+    }
+
+    function ensureAgentChatHistory(card) {
+      if (!card || card.type !== "agent" || gateway.status !== "connected") {
+        return;
+      }
+      const session = getAgentSessionState(card.id);
+      if (session.historyLoaded || session.historyLoading) {
+        return;
+      }
+      session.historyLoading = true;
+      sendGatewayRequest("chat.history", {
+        sessionKey: card.meta.sessionKey,
+        limit: 50,
+      })
+        .then((result) => {
+          const nextMessages = normalizeHistoryMessages(result);
+          if (!session.messages.length) {
+            session.messages = nextMessages;
+          }
+          session.historyLoaded = true;
+        })
+        .catch((error) => {
+          gateway.detail = error.message || "加载历史失败";
+        })
+        .finally(() => {
+          session.historyLoading = false;
+          if (chatCardId === card.id) {
+            renderAgentChat(true);
+          }
+        });
+    }
+
+    function openAgentChat(card) {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      chatCardId = card.id;
+      positionAgentChatPanel(card);
+      agentChatPanel.classList.remove("hidden");
+      ensureAgentChatHistory(card);
+      renderAgentChat(true);
+      agentChatInput.focus();
+    }
+
+    function closeAgentChat() {
+      chatCardId = null;
+      agentChatPanel.classList.add("hidden");
+    }
+
+    function submitAgentChatMessage() {
+      const card = getCardById(chatCardId);
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      const message = agentChatInput.value.trim();
+      if (!message) {
+        return;
+      }
+      sendAgentMessage(card, message, {
+        auto: false,
+        displayMessage: message,
+      });
+      agentChatInput.value = "";
+      updateGatewayUi();
+    }
+
+    function closeGatewaySocket(code = 1000, reason = "disconnect") {
+      if (gateway.connectTimeoutId) {
+        window.clearTimeout(gateway.connectTimeoutId);
+        gateway.connectTimeoutId = null;
+      }
+      if (gateway.socket) {
+        const socket = gateway.socket;
+        gateway.socket = null;
+        socket.close(code, reason);
+      }
+      for (const pending of gateway.pending.values()) {
+        pending.reject(new Error("Gateway disconnected"));
+      }
+      gateway.pending.clear();
+    }
+
+    function connectGateway() {
+      saveGatewaySettings();
+      if (!gateway.settings.url) {
+        setGatewayStatus("error", "Gateway URL 不能为空");
+        return;
+      }
+      if (gateway.status === "connecting" || gateway.status === "connected") {
+        return;
+      }
+      closeGatewaySocket();
+      setGatewayStatus("connecting");
+      try {
+        const socket = new WebSocket(gateway.settings.url);
+        gateway.socket = socket;
+        socket.addEventListener("open", () => {
+          const connectId = createId();
+          gateway.pending.set(connectId, {
+            method: "connect",
+            resolve: () => {
+              setGatewayStatus("connected");
+              for (const card of state.cards.filter((item) => item.type === "agent")) {
+                if (card.meta?.bufferedInputs?.length && card.meta.status !== "paused" && card.meta.status !== "running") {
+                  processBufferedAgentInput(card);
+                }
+              }
+              if (chatCardId) {
+                ensureAgentChatHistory(getCardById(chatCardId));
+                renderAgentChat(true);
+              }
+            },
+            reject: (error) => {
+              if (gateway.status === "connecting") {
+                setGatewayStatus("error", error.message || "connect 握手失败");
+              }
+            },
+          });
+          gateway.connectTimeoutId = window.setTimeout(() => {
+            if (gateway.pending.has(connectId)) {
+              gateway.pending.get(connectId).reject(new Error("connect 握手超时"));
+              gateway.pending.delete(connectId);
+              closeGatewaySocket(1000, "connect timeout");
+            }
+          }, 8000);
+          socket.send(
+            JSON.stringify({
+              type: "req",
+              id: connectId,
+              method: "connect",
+              params: {
+                auth: {
+                  token: gateway.settings.token,
+                },
+                client: {
+                  id: "meld-canvas",
+                  version: "0.1.0",
+                },
+              },
+            })
+          );
+        });
+        socket.addEventListener("message", handleGatewayMessage);
+        socket.addEventListener("close", () => {
+          gateway.socket = null;
+          if (gateway.status !== "error") {
+            setGatewayStatus("disconnected", "连接已断开");
+          }
+        });
+        socket.addEventListener("error", () => {
+          setGatewayStatus("error", "WebSocket 连接失败");
+        });
+      } catch (error) {
+        setGatewayStatus("error", error.message || "无法创建 WebSocket");
+      }
+    }
+
+    function disconnectGateway() {
+      closeGatewaySocket(1000, "manual disconnect");
+      setGatewayStatus("disconnected", "已手动断开");
+    }
+
+    function sendGatewayRequest(method, params) {
+      return new Promise((resolve, reject) => {
+        if (gateway.status !== "connected" || !gateway.socket || gateway.socket.readyState !== WebSocket.OPEN) {
+          reject(new Error("Gateway 未连接"));
+          return;
+        }
+        const id = createId();
+        gateway.pending.set(id, { method, resolve, reject });
+        gateway.socket.send(
+          JSON.stringify({
+            type: "req",
+            id,
+            method,
+            params,
+          })
+        );
+      });
+    }
+
+    function handleGatewayMessage(event) {
+      let payload;
+      try {
+        payload = JSON.parse(event.data);
+      } catch (error) {
+        return;
+      }
+      if (!payload || typeof payload !== "object") {
+        return;
+      }
+      if (payload.type === "res" && typeof payload.id === "string") {
+        const pending = gateway.pending.get(payload.id);
+        if (!pending) {
+          return;
+        }
+        gateway.pending.delete(payload.id);
+        if (pending.method === "connect" && gateway.connectTimeoutId) {
+          window.clearTimeout(gateway.connectTimeoutId);
+          gateway.connectTimeoutId = null;
+        }
+        if (payload.error) {
+          pending.reject(new Error(payload.error.message || payload.error || "请求失败"));
+          return;
+        }
+        pending.resolve(payload.result);
+        return;
+      }
+      if (payload.type === "evt" && payload.event === "chat" && payload.data) {
+        const card = findAgentCardBySessionKey(payload.data.sessionKey);
+        if (!card) {
+          return;
+        }
+        const session = getAgentSessionState(card.id);
+        const content =
+          typeof payload.data.content === "string"
+            ? payload.data.content
+            : typeof payload.data.delta === "string"
+              ? payload.data.delta
+              : "";
+        if (payload.data.role === "assistant") {
+          if (!session.currentRequestToken && card.meta.status !== "running") {
+            return;
+          }
+          setAgentStatus(card, "running");
+          upsertStreamingAssistantMessage(card.id, content);
+          if (payload.data.done === true || payload.data.final === true) {
+            scheduleAgentRunCompletion(card, session.currentRequestToken, 0);
+          } else if (session.responseReceived && session.currentRequestToken) {
+            scheduleAgentRunCompletion(card, session.currentRequestToken, 180);
+          }
+        }
+      }
+    }
+
     function easeOutCubic(value) {
       return 1 - Math.pow(1 - value, 3);
     }
@@ -475,6 +1430,291 @@
       return state.cards.find((card) => card.id === cardId) || null;
     }
 
+    function setCardContent(card, content) {
+      if (!card) {
+        return;
+      }
+      card.content = typeof content === "string" ? content : "";
+      scheduleSave();
+    }
+
+    function setAgentStatus(card, status) {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      if (!AGENT_STATUSES.includes(status)) {
+        return;
+      }
+      card.meta.status = status;
+      scheduleSave();
+      if (chatCardId === card.id) {
+        renderAgentChat();
+      }
+    }
+
+    function formatTimestamp(date = new Date()) {
+      return date.toLocaleString("zh-CN", {
+        hour12: false,
+      });
+    }
+
+    function appendNoteEntry(card, content, sourceCard) {
+      const sourceLabel = sourceCard?.meta?.title ? ` · ${sourceCard.meta.title}` : "";
+      const entry = `### ${formatTimestamp()}${sourceLabel}\n\n${content}`;
+      card.content = card.content?.trim() ? `${card.content.trim()}\n\n${entry}` : entry;
+    }
+
+    function buildPromptWithUpstreamContext(card, userMessage) {
+      const upstreamCards = getAgentUpstreamCards(card.id);
+      if (!upstreamCards.length) {
+        return `[User message]\n${userMessage}`;
+      }
+      const contextBlocks = upstreamCards.map(
+        (upstreamCard) => `Card "${upstreamCard.meta.title}" (${upstreamCard.type}):\n${upstreamCard.content || ""}`
+      );
+      return `[Context from upstream cards]\n---\n${contextBlocks.join("\n---\n\n")}\n---\n\n[User message]\n${userMessage}`;
+    }
+
+    function enqueueAgentInput(card, payload) {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      if (!Array.isArray(card.meta.bufferedInputs)) {
+        card.meta.bufferedInputs = [];
+      }
+      const last = card.meta.bufferedInputs[card.meta.bufferedInputs.length - 1];
+      if (last && last.message === payload.message && last.sourceCardId === payload.sourceCardId) {
+        return;
+      }
+      card.meta.bufferedInputs.push({
+        id: createId(),
+        message: payload.message,
+        sourceCardId: payload.sourceCardId || null,
+        created: new Date().toISOString(),
+      });
+      scheduleSave();
+      if (chatCardId === card.id) {
+        renderAgentChat();
+      }
+    }
+
+    function shiftAgentBufferedInput(card) {
+      if (!card || card.type !== "agent" || !Array.isArray(card.meta.bufferedInputs) || !card.meta.bufferedInputs.length) {
+        return null;
+      }
+      const nextPayload = card.meta.bufferedInputs.shift();
+      scheduleSave();
+      return nextPayload;
+    }
+
+    function sendAgentMessage(card, userMessage, options = {}) {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      const {
+        auto = false,
+        sourceCardId = null,
+        displayMessage = userMessage,
+      } = options;
+
+      if (card.meta.status === "paused") {
+        if (auto) {
+          enqueueAgentInput(card, { message: userMessage, sourceCardId });
+        } else {
+          gateway.detail = "当前 Agent 已暂停";
+          updateGatewayUi();
+        }
+        return;
+      }
+
+      if (gateway.status !== "connected") {
+        if (auto) {
+          enqueueAgentInput(card, { message: userMessage, sourceCardId });
+        } else {
+          gateway.detail = "请先连接 Gateway";
+          updateGatewayUi();
+        }
+        return;
+      }
+
+      if (card.meta.status === "running") {
+        enqueueAgentInput(card, { message: userMessage, sourceCardId });
+        if (!auto) {
+          appendSessionMessage(card.id, {
+            role: "meta",
+            content: "上一轮尚未结束，消息已加入队列。",
+          });
+        }
+        return;
+      }
+
+      const session = getAgentSessionState(card.id);
+      const prompt = buildPromptWithUpstreamContext(card, userMessage);
+      const requestToken = createId();
+      session.abortRequested = false;
+      session.currentRequestToken = requestToken;
+      session.responseReceived = false;
+      if (session.streamFinalizeTimer) {
+        window.clearTimeout(session.streamFinalizeTimer);
+        session.streamFinalizeTimer = null;
+      }
+      appendSessionMessage(card.id, {
+        role: "user",
+        content: displayMessage,
+      });
+      setAgentStatus(card, "running");
+      sendGatewayRequest("chat.send", {
+        sessionKey: card.meta.sessionKey,
+        message: prompt,
+        deliver: false,
+        idempotencyKey: requestToken,
+      })
+        .then(() => {
+          if (session.currentRequestToken !== requestToken) {
+            return;
+          }
+          session.responseReceived = true;
+          scheduleAgentRunCompletion(card, requestToken, session.currentAssistantText ? 180 : 40);
+        })
+        .catch((error) => {
+          if (session.currentRequestToken !== requestToken) {
+            return;
+          }
+          setAgentStatus(card, "idle");
+          if (session.streamFinalizeTimer) {
+            window.clearTimeout(session.streamFinalizeTimer);
+            session.streamFinalizeTimer = null;
+          }
+          session.currentRequestToken = null;
+          session.responseReceived = false;
+          if (!session.abortRequested) {
+            appendSessionMessage(card.id, {
+              role: "meta",
+              content: `请求失败：${error.message || "未知错误"}`,
+            });
+          }
+        });
+    }
+
+    function processBufferedAgentInput(card) {
+      if (!card || card.type !== "agent" || card.meta.status === "paused" || card.meta.status === "running") {
+        return;
+      }
+      const nextPayload = shiftAgentBufferedInput(card);
+      if (!nextPayload) {
+        return;
+      }
+      const sourceCard = nextPayload.sourceCardId ? getCardById(nextPayload.sourceCardId) : null;
+      const sourceTitle = sourceCard?.meta?.title || "上游卡片";
+      sendAgentMessage(card, nextPayload.message, {
+        auto: true,
+        sourceCardId: nextPayload.sourceCardId,
+        displayMessage: `自动触发：${sourceTitle}`,
+      });
+    }
+
+    function propagateAgentOutput(card, output) {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      const trimmedOutput = typeof output === "string" ? output.trim() : "";
+      if (!trimmedOutput) {
+        return;
+      }
+      for (const pipe of getAgentDownstreamPipes(card.id)) {
+        const downstreamCard = getCardById(pipe.to);
+        if (!downstreamCard) {
+          continue;
+        }
+        effects.pipeFlashes.set(pipe.id, performance.now());
+        if (downstreamCard.type === "note") {
+          appendNoteEntry(downstreamCard, trimmedOutput, card);
+          continue;
+        }
+        if (downstreamCard.type === "file" || downstreamCard.type === "markdown") {
+          setCardContent(downstreamCard, trimmedOutput);
+          continue;
+        }
+        if (downstreamCard.type === "agent") {
+          enqueueAgentInput(downstreamCard, {
+            message: `请处理来自上游 Agent "${card.meta.title}" 的最新输出，并继续向下游传播你的结果。`,
+            sourceCardId: card.id,
+          });
+          processBufferedAgentInput(downstreamCard);
+        }
+      }
+      scheduleSave();
+    }
+
+    function completeAgentRun(card, options = {}) {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      const { propagate = true } = options;
+      const session = getAgentSessionState(card.id);
+      const finalText = finalizeStreamingAssistant(card.id);
+      session.currentRequestToken = null;
+      session.responseReceived = false;
+      if (session.streamFinalizeTimer) {
+        window.clearTimeout(session.streamFinalizeTimer);
+        session.streamFinalizeTimer = null;
+      }
+      const nextStatus = card.meta.status === "paused" ? "paused" : "idle";
+      setAgentStatus(card, nextStatus);
+      if (finalText) {
+        card.content = finalText;
+        scheduleSave();
+        if (propagate && !session.abortRequested) {
+          propagateAgentOutput(card, finalText);
+        }
+      }
+      session.abortRequested = false;
+      if (card.meta.status !== "paused") {
+        processBufferedAgentInput(card);
+      }
+    }
+
+    function abortAgentRun(card, nextStatus = "idle") {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      const session = getAgentSessionState(card.id);
+      session.abortRequested = true;
+      session.currentRequestToken = null;
+      session.responseReceived = false;
+      if (session.streamFinalizeTimer) {
+        window.clearTimeout(session.streamFinalizeTimer);
+        session.streamFinalizeTimer = null;
+      }
+      if (gateway.status === "connected") {
+        sendGatewayRequest("chat.abort", {
+          sessionKey: card.meta.sessionKey,
+        }).catch(() => undefined);
+      }
+      const finalText = finalizeStreamingAssistant(card.id);
+      if (finalText) {
+        card.content = finalText;
+        scheduleSave();
+      }
+      setAgentStatus(card, nextStatus);
+    }
+
+    function toggleAgentPause(card) {
+      if (!card || card.type !== "agent") {
+        return;
+      }
+      if (card.meta.status === "paused") {
+        setAgentStatus(card, "idle");
+        processBufferedAgentInput(card);
+        return;
+      }
+      if (card.meta.status === "running") {
+        abortAgentRun(card, "paused");
+        return;
+      }
+      setAgentStatus(card, "paused");
+    }
+
     function getPipeById(pipeId) {
       return state.pipes.find((pipe) => pipe.id === pipeId) || null;
     }
@@ -505,6 +1745,35 @@
         x: kind === "input" ? rect.x : rect.x + rect.width,
         y: rect.y + rect.height / 2,
       };
+    }
+
+    function getAgentPauseButtonRect(card) {
+      if (!card || card.type !== "agent") {
+        return null;
+      }
+      const rect = getCardScreenRect(card);
+      const size = clamp(18 * state.camera.zoom, 16, 20);
+      const padding = clamp(12 * state.camera.zoom, 10, 16);
+      return {
+        x: rect.x + rect.width - padding - size,
+        y: rect.y + rect.height - padding - size,
+        width: size,
+        height: size,
+      };
+    }
+
+    function hitTestAgentControl(x, y) {
+      for (let index = state.cards.length - 1; index >= 0; index -= 1) {
+        const card = state.cards[index];
+        if (card.type !== "agent") {
+          continue;
+        }
+        const buttonRect = getAgentPauseButtonRect(card);
+        if (buttonRect && isPointInRect(x, y, buttonRect)) {
+          return { card, control: "pause-toggle" };
+        }
+      }
+      return null;
     }
 
     function isPointInRect(x, y, rect) {
@@ -644,8 +1913,9 @@
     }
 
     function createCard(type, gridPosition) {
+      const cardId = createId();
       const card = {
-        id: createId(),
+        id: cardId,
         type,
         position: {
           x: gridPosition.x,
@@ -657,6 +1927,8 @@
           title: TYPE_LABELS[type],
           created: new Date().toISOString(),
           status: "idle",
+          sessionKey: type === "agent" ? buildAgentSessionKey(cardId) : null,
+          bufferedInputs: type === "agent" ? [] : [],
         },
       };
       state.cards.push(card);
@@ -726,6 +1998,10 @@
       if (editorCardId === cardId) {
         closeEditor(false);
       }
+      if (chatCardId === cardId) {
+        closeAgentChat();
+      }
+      agentSessions.delete(cardId);
 
       hideContextMenu();
       scheduleSave();
@@ -757,6 +2033,12 @@
 
       if (interaction.mode === "connect") {
         canvas.style.cursor = "crosshair";
+        return;
+      }
+
+      const agentControlHit = hitTestAgentControl(x, y);
+      if (agentControlHit) {
+        canvas.style.cursor = "pointer";
         return;
       }
 
@@ -1052,9 +2334,10 @@
       ctx.restore();
     }
 
-    function drawAgentStatusBadge(status, x, y) {
+    function drawAgentStatusBadge(status, x, y, timestamp) {
       const dotColor = AGENT_STATUS_COLORS[status] || AGENT_STATUS_COLORS.idle;
       const text = status;
+      const pulse = status === "running" ? 0.45 + 0.55 * ((Math.sin(timestamp * 0.006) + 1) / 2) : 0;
       ctx.save();
       ctx.font = "600 10px system-ui";
       const width = ctx.measureText(text).width + 22;
@@ -1063,12 +2346,61 @@
       ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(x - width + 9, y + height / 2, 3.5, 0, Math.PI * 2);
+      ctx.arc(x - width + 9, y + height / 2, 3.5 + pulse * 0.6, 0, Math.PI * 2);
       ctx.fillStyle = dotColor;
+      if (status === "running") {
+        ctx.shadowBlur = 12 + pulse * 8;
+        ctx.shadowColor = `${dotColor}cc`;
+      }
       ctx.fill();
       ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+      ctx.shadowColor = "transparent";
       ctx.textBaseline = "middle";
       ctx.fillText(text, x - width + 16, y + height / 2);
+      ctx.restore();
+    }
+
+    function drawAgentConnectionDot(card, rect, paddingX, paddingY, timestamp) {
+      const color = GATEWAY_STATUS_COLORS[gateway.status] || GATEWAY_STATUS_COLORS.disconnected;
+      const pulse = gateway.status === "connecting" ? 0.4 + 0.6 * ((Math.sin(timestamp * 0.008) + 1) / 2) : 0;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(rect.x + paddingX + 4, rect.y + paddingY + 5, 4 + pulse * 0.8, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 10 + pulse * 8;
+      ctx.shadowColor = `${color}cc`;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawAgentPauseButton(card) {
+      const rect = getAgentPauseButtonRect(card);
+      if (!rect) {
+        return;
+      }
+      const active = card.meta.status === "paused";
+      ctx.save();
+      drawRoundedRect(rect.x, rect.y, rect.width, rect.height, 6);
+      ctx.fillStyle = active ? "rgba(96, 165, 250, 0.18)" : "rgba(255, 255, 255, 0.06)";
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = active ? "rgba(96, 165, 250, 0.35)" : "rgba(255, 255, 255, 0.08)";
+      ctx.stroke();
+      ctx.fillStyle = active ? "#93c5fd" : "rgba(255, 255, 255, 0.84)";
+      if (active) {
+        ctx.beginPath();
+        ctx.moveTo(rect.x + rect.width * 0.4, rect.y + rect.height * 0.28);
+        ctx.lineTo(rect.x + rect.width * 0.4, rect.y + rect.height * 0.72);
+        ctx.lineTo(rect.x + rect.width * 0.72, rect.y + rect.height * 0.5);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        const barWidth = Math.max(2, rect.width * 0.14);
+        const barHeight = rect.height * 0.42;
+        const top = rect.y + (rect.height - barHeight) / 2;
+        ctx.fillRect(rect.x + rect.width * 0.32, top, barWidth, barHeight);
+        ctx.fillRect(rect.x + rect.width * 0.54, top, barWidth, barHeight);
+      }
       ctx.restore();
     }
 
@@ -1088,7 +2420,8 @@
       const maxLines = Math.max(1, Math.floor(bodyHeight / bodyLineHeight));
       const preview = card.content || TYPE_DEFAULT_CONTENT[card.type];
       const entranceStart = effects.cardEntrances.get(card.id);
-      const badgeReservedWidth = card.type === "agent" ? 54 : card.type === "note" ? 28 : 0;
+      const badgeReservedWidth = card.type === "agent" ? 112 : card.type === "note" ? 28 : 0;
+      const titleOffsetX = card.type === "agent" ? 14 : 0;
 
       ctx.save();
       if (typeof entranceStart === "number") {
@@ -1130,19 +2463,20 @@
       ctx.font = `600 ${titleFontSize}px system-ui`;
       ctx.textBaseline = "top";
       ctx.fillText(
-        fitTextWithEllipsis(card.meta.title, Math.max(20, rect.width - paddingX * 2 - badgeReservedWidth)),
-        rect.x + paddingX,
+        fitTextWithEllipsis(card.meta.title, Math.max(20, rect.width - paddingX * 2 - badgeReservedWidth - titleOffsetX)),
+        rect.x + paddingX + titleOffsetX,
         rect.y + paddingY
       );
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
       ctx.font = `600 ${labelFontSize}px system-ui`;
-      ctx.fillText(card.type.toUpperCase(), rect.x + paddingX, rect.y + paddingY + titleFontSize + 4);
+      ctx.fillText(card.type.toUpperCase(), rect.x + paddingX + titleOffsetX, rect.y + paddingY + titleFontSize + 4);
 
       if (card.type === "note") {
         drawBadge(`${parseNoteItemCount(card.content)}`, rect.x + rect.width - paddingX, rect.y + paddingY - 2, "rgba(139, 92, 246, 0.16)", "#d8b4fe");
       } else if (card.type === "agent") {
-        drawAgentStatusBadge(card.meta.status || "idle", rect.x + rect.width - paddingX, rect.y + paddingY - 2);
+        drawAgentConnectionDot(card, rect, paddingX, paddingY, timestamp);
+        drawAgentStatusBadge(card.meta.status || "idle", rect.x + rect.width - paddingX, rect.y + paddingY - 2, timestamp);
       }
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
@@ -1155,6 +2489,9 @@
 
       drawPort(card, "input");
       drawPort(card, "output");
+      if (card.type === "agent") {
+        drawAgentPauseButton(card);
+      }
     }
 
     function drawPort(card, kind) {
@@ -1203,6 +2540,13 @@
         drawCard(card, timestamp);
       }
 
+      if (chatCardId) {
+        const chatCard = getCardById(chatCardId);
+        if (chatCard) {
+          positionAgentChatPanel(chatCard);
+        }
+      }
+
       updateHud();
       requestAnimationFrame(render);
     }
@@ -1235,6 +2579,11 @@
     }
 
     function buildTouchIntent(clientX, clientY) {
+      const agentControlHit = hitTestAgentControl(clientX, clientY);
+      if (agentControlHit) {
+        return { kind: "agent-control", cardId: agentControlHit.card.id };
+      }
+
       const portHit = hitTestPort(clientX, clientY);
       if (portHit) {
         return { kind: "port", portHit };
@@ -1349,6 +2698,13 @@
 
       const cardHit = hitTestCard(event.clientX, event.clientY);
       if (cardHit) {
+        const agentControlHit = hitTestAgentControl(event.clientX, event.clientY);
+        if (agentControlHit?.control === "pause-toggle") {
+          selectCard(agentControlHit.card.id);
+          toggleAgentPause(agentControlHit.card);
+          updateCursor(event.clientX, event.clientY);
+          return;
+        }
         const worldPoint = screenToWorld(event.clientX, event.clientY);
         const cardRect = getCardWorldRect(cardHit);
         startCardDrag(
@@ -1448,9 +2804,13 @@
         return;
       }
       const card = hitTestCard(event.clientX, event.clientY);
-      if (card?.type === "markdown") {
+      if (card?.type === "markdown" || card?.type === "agent") {
         selectCard(card.id);
-        openEditor(card);
+        if (card.type === "markdown") {
+          openEditor(card);
+        } else {
+          openAgentChat(card);
+        }
       }
     }
 
@@ -1634,13 +2994,17 @@
         }
         selectCard(card.id);
         const isDoubleTap =
-          card.type === "markdown" &&
+          (card.type === "markdown" || card.type === "agent") &&
           lastTap.cardId === card.id &&
           performance.now() - lastTap.time <= DOUBLE_TAP_MS &&
           Math.hypot(clientX - lastTap.x, clientY - lastTap.y) <= 20;
         if (isDoubleTap) {
           lastTap.time = 0;
-          openEditor(card);
+          if (card.type === "markdown") {
+            openEditor(card);
+          } else {
+            openAgentChat(card);
+          }
           return;
         }
         lastTap = {
@@ -1649,6 +3013,16 @@
           x: clientX,
           y: clientY,
         };
+        return;
+      }
+
+      if (intent.kind === "agent-control" && intent.cardId) {
+        const card = getCardById(intent.cardId);
+        if (card) {
+          selectCard(card.id);
+          toggleAgentPause(card);
+        }
+        lastTap.time = 0;
         return;
       }
 
@@ -1720,7 +3094,12 @@
           closeEditor(false);
           return;
         }
+        if (!agentChatPanel.classList.contains("hidden")) {
+          closeAgentChat();
+          return;
+        }
         hideContextMenu();
+        settingsPanel.classList.add("hidden");
         if (interaction.mode === "connect") {
           resetInteraction();
         }
@@ -1789,6 +3168,37 @@
       }
     });
 
+    settingsToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      saveGatewaySettings();
+      settingsPanel.classList.toggle("hidden");
+      updateGatewayUi();
+    });
+
+    gatewayUrlInput.addEventListener("change", saveGatewaySettings);
+    gatewayTokenInput.addEventListener("change", saveGatewaySettings);
+    gatewayConnectButton.addEventListener("click", connectGateway);
+    gatewayDisconnectButton.addEventListener("click", disconnectGateway);
+
+    agentChatCloseButton.addEventListener("click", closeAgentChat);
+    agentChatSendButton.addEventListener("click", submitAgentChatMessage);
+    agentChatStopButton.addEventListener("click", () => {
+      const card = getCardById(chatCardId);
+      if (card) {
+        abortAgentRun(card, "idle");
+      }
+    });
+    agentChatInput.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "enter") {
+        event.preventDefault();
+        submitAgentChatMessage();
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeAgentChat();
+      }
+    });
+
     canvas.addEventListener("mousedown", handleMouseDown);
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("dblclick", handleDoubleClick);
@@ -1800,22 +3210,46 @@
     canvas.addEventListener("touchcancel", handleTouchCancel, { passive: false });
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("keydown", handleWindowKeyDown);
-    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      if (chatCardId) {
+        const card = getCardById(chatCardId);
+        if (card) {
+          positionAgentChatPanel(card);
+        }
+      }
+    });
     window.addEventListener("beforeunload", saveState);
     window.addEventListener("mousedown", (event) => {
       if (!contextMenu.contains(event.target)) {
         hideContextMenu();
+      }
+      if (!settingsPanel.contains(event.target) && !settingsToggle.contains(event.target)) {
+        settingsPanel.classList.add("hidden");
+      }
+      if (
+        !agentChatPanel.classList.contains("hidden") &&
+        !agentChatPanel.contains(event.target) &&
+        !canvas.contains(event.target)
+      ) {
+        closeAgentChat();
       }
     });
     window.addEventListener("touchstart", (event) => {
       if (!contextMenu.contains(event.target)) {
         hideContextMenu();
       }
+      if (!settingsPanel.contains(event.target) && !settingsToggle.contains(event.target)) {
+        settingsPanel.classList.add("hidden");
+      }
     }, { passive: true });
 
+    syncGatewaySettingsInputs();
     resizeCanvas();
+    updateGatewayUi();
     updateCursor(0, 0);
     requestAnimationFrame(render);
+    autoConfigureGateway();
   </script>
 </body>
 </html>
