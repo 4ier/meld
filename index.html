@@ -1292,13 +1292,20 @@
               id: connectId,
               method: "connect",
               params: {
+                minProtocol: 3,
+                maxProtocol: 3,
                 auth: {
                   token: gateway.settings.token,
                 },
                 client: {
                   id: "meld-canvas",
                   version: "0.1.0",
+                  platform: "web",
+                  mode: "webchat",
                 },
+                role: "user",
+                caps: ["tool-events"],
+                userAgent: navigator.userAgent,
               },
             })
           );
