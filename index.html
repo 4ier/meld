@@ -1764,6 +1764,9 @@
         if (!card || card.type !== "agent" || !text) {
           return;
         }
+        if (!Array.isArray(card.messages)) {
+          card.messages = [];
+        }
         card.messages.push({
           id: createId(),
           role,
@@ -2525,7 +2528,10 @@
         const seconds = String(date.getSeconds()).padStart(2, "0");
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
       }
+      // Expose Meld internals for testing/debugging
+      window.__meld = { state, gateway, propagateFromCard, getCard, requestAgentRun, scheduleSave };
     })();
+    // Expose Meld internals for testing/debugging (added outside IIFE scope won't work, keep inside)
   </script>
 </body>
 </html>
