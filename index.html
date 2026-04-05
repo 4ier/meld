@@ -601,7 +601,7 @@
       const MAX_ZOOM = 3;
       const LONG_PRESS_MS = 460;
       const MOVE_THRESHOLD = 8;
-      const PIPE_HIT_RADIUS = 14;
+      const PIPE_HIT_RADIUS = 24;
       const MAX_FLOW_HOPS = 24;
       const ACTIVE_MS = 1800;
       const CARD_COLORS = {
@@ -1083,7 +1083,17 @@
         }
 
         const world = screenToWorld(event.clientX, event.clientY);
-        const card = getCardAtScreenPoint(event.clientX, event.clientY);
+
+        // Check port hit on ALL cards first (ports extend beyond card rect)
+        let portHitCard = null;
+        let portHitKind = null;
+        for (let i = state.cards.length - 1; i >= 0; i--) {
+          const c = state.cards[i];
+          const p = getPortHit(c, event.clientX, event.clientY);
+          if (p) { portHitCard = c; portHitKind = p; break; }
+        }
+
+        const card = portHitCard || getCardAtScreenPoint(event.clientX, event.clientY);
 
         interaction.startScreenX = event.clientX;
         interaction.startScreenY = event.clientY;
@@ -1093,7 +1103,7 @@
         if (card) {
           selectedCardId = card.id;
           bringCardToFront(card.id);
-          const port = getPortHit(card, event.clientX, event.clientY);
+          const port = portHitKind || getPortHit(card, event.clientX, event.clientY);
           if (port === "output") {
             interaction.mode = "connect";
             interaction.connectFromCardId = card.id;
@@ -1190,9 +1200,19 @@
         }
 
         if (interaction.mode === "connect" && interaction.connectFromCardId) {
-          const targetCard = getCardAtScreenPoint(event.clientX, event.clientY);
-          if (targetCard && targetCard.id !== interaction.connectFromCardId && getPortHit(targetCard, event.clientX, event.clientY) === "input") {
-            createPipe(interaction.connectFromCardId, targetCard.id);
+          // Check all cards for input port hit (port extends beyond card rect)
+          let target = null;
+          for (let i = state.cards.length - 1; i >= 0; i--) {
+            const c = state.cards[i];
+            if (c.id === interaction.connectFromCardId) continue;
+            if (getPortHit(c, event.clientX, event.clientY) === "input") { target = c; break; }
+          }
+          if (!target) {
+            const tc = getCardAtScreenPoint(event.clientX, event.clientY);
+            if (tc && tc.id !== interaction.connectFromCardId && getPortHit(tc, event.clientX, event.clientY) === "input") target = tc;
+          }
+          if (target) {
+            createPipe(interaction.connectFromCardId, target.id);
           }
         }
 
@@ -2149,7 +2169,7 @@
       }
 
       function drawPort(x, y, color) {
-        const radius = Math.max(5, 7 * state.camera.zoom);
+        const radius = Math.max(8, 10 * state.camera.zoom);
         ctx.beginPath();
         ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
