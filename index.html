@@ -92,18 +92,19 @@
     }
 
     .card-action {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       border: 1px solid var(--button-border);
-      border-radius: 10px;
+      border-radius: 999px;
       background: var(--button-bg);
       color: #ffffff;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+      transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
       box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
+      font-size: 14px;
     }
 
     .card-action:hover {
@@ -597,6 +598,17 @@
       const DEFAULT_CARD_WIDTH = GRID_SIZE * DEFAULT_CARD_SIZE.w;
       const DEFAULT_CARD_HEIGHT = GRID_SIZE * DEFAULT_CARD_SIZE.h;
       const CARD_TYPES = ["markdown", "file", "agent", "note"];
+      const CARD_PORTS = [
+        { id: "top-left", side: "top", kind: "input", fx: 0.22, fy: 0 },
+        { id: "top-center", side: "top", kind: "input", fx: 0.5, fy: 0 },
+        { id: "top-right", side: "top", kind: "input", fx: 0.78, fy: 0 },
+        { id: "left", side: "left", kind: "input", fx: 0, fy: 0.5 },
+        { id: "bottom-left", side: "bottom", kind: "output", fx: 0.22, fy: 1 },
+        { id: "bottom-center", side: "bottom", kind: "output", fx: 0.5, fy: 1 },
+        { id: "bottom-right", side: "bottom", kind: "output", fx: 0.78, fy: 1 },
+        { id: "right", side: "right", kind: "output", fx: 1, fy: 0.5 },
+      ];
+      const PORT_IDS = new Set(CARD_PORTS.map((port) => port.id));
       const MIN_ZOOM = 0.25;
       const MAX_ZOOM = 3;
       const LONG_PRESS_MS = 460;
@@ -675,6 +687,7 @@
       let contextMenuState = null;
       let saveTimer = null;
       let lastFrameTime = performance.now();
+      let hoveredCardId = null;
 
       const controlElements = new Map();
       const pipeActiveUntil = new Map();
@@ -699,6 +712,7 @@
         startCameraX: 0,
         startCameraY: 0,
         connectFromCardId: null,
+        connectFromPortId: null,
         connectPointerX: 0,
         connectPointerY: 0,
         pinchStartZoom: 1,
@@ -725,7 +739,7 @@
 
       function createDefaultState() {
         return {
-          version: 4,
+          version: 5,
           camera: {
             x: 0,
             y: 0,
@@ -812,6 +826,7 @@
                   messages,
                   updatedAt: typeof card.updatedAt === "string" ? card.updatedAt : new Date().toISOString(),
                   activeUntil: 0,
+                  portReveal: 0,
                 };
               })
           : [];
@@ -824,12 +839,14 @@
               .map((pipe) => ({
                 id: typeof pipe.id === "string" ? pipe.id : createId(),
                 from: pipe.from,
+                fromPort: PORT_IDS.has(pipe.fromPort) ? pipe.fromPort : "right",
                 to: pipe.to,
+                toPort: PORT_IDS.has(pipe.toPort) ? pipe.toPort : "left",
               }))
           : [];
 
         return {
-          version: 4,
+          version: 5,
           camera: {
             x: Number.isFinite(raw.camera?.x) ? raw.camera.x : fallback.camera.x,
             y: Number.isFinite(raw.camera?.y) ? raw.camera.y : fallback.camera.y,
@@ -862,7 +879,7 @@
         try {
           // localStorage 只保存可序列化的画布状态，临时流式态放在内存里。
           const payload = {
-            version: 4,
+            version: 5,
             camera: state.camera,
             cards: state.cards.map((card) => ({
               id: card.id,
@@ -882,7 +899,9 @@
             pipes: state.pipes.map((pipe) => ({
               id: pipe.id,
               from: pipe.from,
+              fromPort: pipe.fromPort,
               to: pipe.to,
+              toPort: pipe.toPort,
             })),
           };
           localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -965,6 +984,7 @@
         canvas.addEventListener("pointermove", onCanvasPointerMove);
         canvas.addEventListener("pointerup", onCanvasPointerUp);
         canvas.addEventListener("pointercancel", onCanvasPointerUp);
+        canvas.addEventListener("pointerleave", onCanvasPointerLeave);
         canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
 
         controlsLayer.addEventListener("click", onCardControlClick);
@@ -1078,22 +1098,14 @@
         cancelLongPress();
 
         if (activePointers.size === 2) {
+          hoveredCardId = null;
           beginPinch();
           return;
         }
 
         const world = screenToWorld(event.clientX, event.clientY);
-
-        // Check port hit on ALL cards first (ports extend beyond card rect)
-        let portHitCard = null;
-        let portHitKind = null;
-        for (let i = state.cards.length - 1; i >= 0; i--) {
-          const c = state.cards[i];
-          const p = getPortHit(c, event.clientX, event.clientY);
-          if (p) { portHitCard = c; portHitKind = p; break; }
-        }
-
-        const card = portHitCard || getCardAtScreenPoint(event.clientX, event.clientY);
+        const portHit = getTopmostPortHit(event.clientX, event.clientY);
+        const card = portHit?.card || getCardAtScreenPoint(event.clientX, event.clientY);
 
         interaction.startScreenX = event.clientX;
         interaction.startScreenY = event.clientY;
@@ -1102,11 +1114,12 @@
 
         if (card) {
           selectedCardId = card.id;
+          hoveredCardId = card.id;
           bringCardToFront(card.id);
-          const port = portHitKind || getPortHit(card, event.clientX, event.clientY);
-          if (port === "output") {
+          if (portHit && portHit.card.id === card.id && portHit.port.kind === "output") {
             interaction.mode = "connect";
             interaction.connectFromCardId = card.id;
+            interaction.connectFromPortId = portHit.port.id;
             interaction.connectPointerX = event.clientX;
             interaction.connectPointerY = event.clientY;
             return;
@@ -1127,6 +1140,7 @@
           }, LONG_PRESS_MS);
         }
 
+        hoveredCardId = null;
         interaction.mode = "pan";
       }
 
@@ -1135,6 +1149,10 @@
         if (pointer) {
           pointer.x = event.clientX;
           pointer.y = event.clientY;
+        }
+
+        if (event.pointerType === "mouse" || interaction.mode === "connect") {
+          hoveredCardId = getTopmostPortHit(event.clientX, event.clientY)?.card.id || getCardAtScreenPoint(event.clientX, event.clientY)?.id || null;
         }
 
         if (Math.abs(event.clientX - interaction.startScreenX) > MOVE_THRESHOLD || Math.abs(event.clientY - interaction.startScreenY) > MOVE_THRESHOLD) {
@@ -1200,30 +1218,28 @@
         }
 
         if (interaction.mode === "connect" && interaction.connectFromCardId) {
-          // Check all cards for input port hit (port extends beyond card rect)
-          let target = null;
-          for (let i = state.cards.length - 1; i >= 0; i--) {
-            const c = state.cards[i];
-            if (c.id === interaction.connectFromCardId) continue;
-            if (getPortHit(c, event.clientX, event.clientY) === "input") { target = c; break; }
-          }
-          if (!target) {
-            const tc = getCardAtScreenPoint(event.clientX, event.clientY);
-            if (tc && tc.id !== interaction.connectFromCardId && getPortHit(tc, event.clientX, event.clientY) === "input") target = tc;
-          }
-          if (target) {
-            createPipe(interaction.connectFromCardId, target.id);
+          const targetHit = getTopmostPortHit(event.clientX, event.clientY, "input", interaction.connectFromCardId);
+          if (targetHit) {
+            createPipe(interaction.connectFromCardId, interaction.connectFromPortId || "right", targetHit.card.id, targetHit.port.id);
           }
         }
 
         if (!interaction.moved && pointer && interaction.mode === "pan") {
           const hit = getCardAtScreenPoint(pointer.x, pointer.y);
           selectedCardId = hit ? hit.id : null;
+          hoveredCardId = selectedCardId;
         }
 
         interaction.mode = activePointers.size ? "pan" : "idle";
         interaction.cardId = null;
         interaction.connectFromCardId = null;
+        interaction.connectFromPortId = null;
+      }
+
+      function onCanvasPointerLeave(event) {
+        if (event.pointerType === "mouse" && interaction.mode === "idle") {
+          hoveredCardId = null;
+        }
       }
 
       function onCanvasWheel(event) {
@@ -1296,6 +1312,10 @@
           pauseAgent(cardId);
           return;
         }
+        if (action === "stop") {
+          abortAgentRun(cardId, "已停止当前运行。");
+          return;
+        }
         if (action === "chat") {
           openChatPanel(cardId);
         }
@@ -1361,8 +1381,8 @@
           card.updatedAt = new Date().toISOString();
           markCardActive(card.id);
           scheduleSave();
-          if (card.type === "markdown" || card.type === "file") {
-            propagateFromCard(card.id, { reason: "content-saved", hops: 0, flowId: createId() });
+          if ((card.type === "markdown" || card.type === "file") && isTriggerCard(card.id)) {
+            propagateFromCard(card.id, { reason: "trigger-saved", hops: 0, flowId: createId() });
           }
         }
         closeEditor();
@@ -1447,7 +1467,7 @@
         if (!chatCardId) {
           return;
         }
-        stopAgentRun(chatCardId, "手动停止当前本地流式接收");
+        abortAgentRun(chatCardId, "已从聊天面板停止当前运行。");
       }
 
       function createCard(type, worldX, worldY) {
@@ -1467,6 +1487,7 @@
           messages: [],
           updatedAt: new Date().toISOString(),
           activeUntil: 0,
+          portReveal: 0,
         };
         if (type === "note" || type === "file") {
           card.content = "";
@@ -1481,18 +1502,20 @@
       }
 
       function deleteCard(cardId) {
+        const removedPipeIds = new Set(
+          state.pipes.filter((pipe) => pipe.from === cardId || pipe.to === cardId).map((pipe) => pipe.id)
+        );
         state.cards = state.cards.filter((card) => card.id !== cardId);
         state.pipes = state.pipes.filter((pipe) => pipe.from !== cardId && pipe.to !== cardId);
         controlElements.get(cardId)?.remove();
         controlElements.delete(cardId);
         agentRuntime.delete(cardId);
-        pipeActiveUntil.forEach((_, key) => {
-          if (key.startsWith(`${cardId}:`) || key.endsWith(`:${cardId}`)) {
-            pipeActiveUntil.delete(key);
-          }
-        });
+        removedPipeIds.forEach((pipeId) => pipeActiveUntil.delete(pipeId));
         if (selectedCardId === cardId) {
           selectedCardId = null;
+        }
+        if (hoveredCardId === cardId) {
+          hoveredCardId = null;
         }
         if (editorCardId === cardId) {
           closeEditor();
@@ -1503,23 +1526,28 @@
         scheduleSave();
       }
 
-      function createPipe(fromCardId, toCardId) {
-        const exists = state.pipes.some((pipe) => pipe.from === fromCardId && pipe.to === toCardId);
+      function createPipe(fromCardId, fromPortId, toCardId, toPortId) {
+        const exists = state.pipes.some(
+          (pipe) => pipe.from === fromCardId && pipe.fromPort === fromPortId && pipe.to === toCardId && pipe.toPort === toPortId
+        );
         if (exists) {
           return;
         }
-        state.pipes.push({
+        const pipe = {
           id: createId(),
           from: fromCardId,
+          fromPort: fromPortId,
           to: toCardId,
-        });
-        flashPipe(fromCardId, toCardId);
+          toPort: toPortId,
+        };
+        state.pipes.push(pipe);
+        flashPipe(pipe.id);
         scheduleSave();
-        propagateAlongNewPipe(fromCardId, toCardId);
+        propagateAlongNewPipe(pipe);
       }
 
-      function propagateAlongNewPipe(fromCardId, toCardId) {
-        const target = getCard(toCardId);
+      function propagateAlongNewPipe(pipe) {
+        const target = getCard(pipe.to);
         if (!target) {
           return;
         }
@@ -1527,11 +1555,12 @@
           requestAgentRun(target.id, { reason: "pipe-connected" });
           return;
         }
-        const source = getCard(fromCardId);
+        const source = getCard(pipe.from);
         if (!source) {
           return;
         }
         const payload = getCardOutput(source);
+        flashPipe(pipe.id);
         propagatePayloadToTarget(source, target, payload, { flowId: createId(), hops: 0, reason: "pipe-connected" });
       }
 
@@ -1554,7 +1583,7 @@
             return;
           }
           // 每次传播都点亮连接线和目标卡片，形成可见的数据流反馈。
-          flashPipe(pipe.from, pipe.to);
+          flashPipe(pipe.id);
           propagatePayloadToTarget(source, target, payload, {
             flowId: meta.flowId,
             hops: meta.hops + 1,
@@ -1640,6 +1669,25 @@
         pushAgentMessage(cardId, "meta", reason);
         scheduleSave();
         renderChatPanel();
+      }
+
+      async function abortAgentRun(cardId, reason) {
+        const card = getCard(cardId);
+        if (!card || card.type !== "agent") {
+          return;
+        }
+        const runtime = ensureAgentRuntime(cardId);
+        if (gateway.status === "connected") {
+          try {
+            await sendGatewayRequest("chat.abort", {
+              sessionKey: card.sessionKey,
+              runId: runtime.runId || undefined,
+            });
+          } catch (error) {
+            pushAgentMessage(cardId, "meta", `停止请求失败: ${error.message}`);
+          }
+        }
+        stopAgentRun(cardId, reason);
       }
 
       async function requestAgentRun(cardId, trigger) {
@@ -2045,11 +2093,11 @@
         requestAnimationFrame(frame);
       }
 
-      function render(now) {
+      function render(now, dt) {
         ctx.clearRect(0, 0, viewport.width, viewport.height);
         drawGrid();
         drawPipes(now);
-        drawCards(now);
+        drawCards(now, dt);
         drawPendingConnection();
         syncControlLayer();
         updateHUD();
@@ -2075,36 +2123,37 @@
 
       function drawPipes(now) {
         state.pipes.forEach((pipe) => {
-          const from = getCard(pipe.from);
-          const to = getCard(pipe.to);
-          if (!from || !to) {
+          const curve = getPipeCurve(pipe.from, pipe.fromPort, pipe.to, pipe.toPort);
+          if (!curve) {
             return;
           }
-          const start = getCardOutputPortScreenPoint(from);
-          const end = getCardInputPortScreenPoint(to);
           const active = isPipeActive(pipe, now);
           const pulse = active ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(now / 180)) : 0;
+          const strokeStyle = active ? `rgba(245, 158, 11, ${0.45 + pulse * 0.4})` : "rgba(255, 255, 255, 0.18)";
 
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
           ctx.beginPath();
-          ctx.moveTo(start.x, start.y);
-          const delta = Math.max(80, Math.abs(end.x - start.x) * 0.5);
-          ctx.bezierCurveTo(start.x + delta, start.y, end.x - delta, end.y, end.x, end.y);
-          ctx.strokeStyle = active ? `rgba(245, 158, 11, ${0.45 + pulse * 0.4})` : "rgba(255, 255, 255, 0.18)";
+          ctx.moveTo(curve.p0.x, curve.p0.y);
+          ctx.bezierCurveTo(curve.p1.x, curve.p1.y, curve.p2.x, curve.p2.y, curve.p3.x, curve.p3.y);
+          ctx.strokeStyle = strokeStyle;
           ctx.lineWidth = active ? 5 + pulse * 2 : 3.5;
           ctx.stroke();
+          ctx.restore();
 
-          drawFlowIndicator(start, end, active ? pulse : 0);
+          drawFlowIndicator(curve, active ? pulse : 0);
+          drawPipeArrow(curve, strokeStyle, active ? pulse : 0);
         });
       }
 
-      function drawFlowIndicator(start, end, pulse) {
+      function drawFlowIndicator(curve, pulse) {
         const t = 0.5 + 0.2 * Math.sin(performance.now() / 260);
-        const delta = Math.max(80, Math.abs(end.x - start.x) * 0.5);
         const point = cubicBezierPoint(
-          start,
-          { x: start.x + delta, y: start.y },
-          { x: end.x - delta, y: end.y },
-          end,
+          curve.p0,
+          curve.p1,
+          curve.p2,
+          curve.p3,
           t
         );
 
@@ -2114,7 +2163,38 @@
         ctx.fill();
       }
 
-      function drawCards(now) {
+      function drawPipeArrow(curve, color, pulse) {
+        const tangent = cubicBezierTangent(curve.p0, curve.p1, curve.p2, curve.p3, 0.985);
+        const tangentLength = Math.hypot(tangent.x, tangent.y);
+        if (!tangentLength) {
+          return;
+        }
+        const ux = tangent.x / tangentLength;
+        const uy = tangent.y / tangentLength;
+        const arrowLength = 10 + pulse * 1.2;
+        const halfWidth = 4 + pulse * 0.7;
+        const tipOffset = getPortRadius() + 1;
+        const tip = {
+          x: curve.p3.x - ux * tipOffset,
+          y: curve.p3.y - uy * tipOffset,
+        };
+        const base = {
+          x: tip.x - ux * arrowLength,
+          y: tip.y - uy * arrowLength,
+        };
+        const px = -uy;
+        const py = ux;
+
+        ctx.beginPath();
+        ctx.moveTo(tip.x, tip.y);
+        ctx.lineTo(base.x + px * halfWidth, base.y + py * halfWidth);
+        ctx.lineTo(base.x - px * halfWidth, base.y - py * halfWidth);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      function drawCards(now, dt) {
         state.cards.forEach((card) => {
           const rect = getCardScreenRect(card);
           if (!rectVisible(rect)) {
@@ -2163,13 +2243,21 @@
           const bodyText = getCardPreview(card);
           drawTextBlock(bodyText, rect.x + pad, bodyTop, rect.w - pad * 2, bodyHeight, state.camera.zoom);
 
-          drawPort(rect.x, rect.y + rect.h / 2, CARD_COLORS[card.type], true);
-          drawPort(rect.x + rect.w, rect.y + rect.h / 2, CARD_COLORS[card.type], false);
+          const portReveal = updateCardPortReveal(card, dt);
+          CARD_PORTS.forEach((port) => {
+            const point = getCardPortScreenPoint(card, port.id);
+            drawPort(point.x, point.y, CARD_COLORS[card.type], portReveal);
+          });
         });
       }
 
-      function drawPort(x, y, color) {
-        const radius = Math.max(12, 14 * state.camera.zoom);
+      function drawPort(x, y, color, alpha) {
+        if (alpha <= 0.02) {
+          return;
+        }
+        const radius = getPortRadius();
+        ctx.save();
+        ctx.globalAlpha = alpha;
         ctx.beginPath();
         ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
@@ -2178,22 +2266,32 @@
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
+        ctx.restore();
       }
 
       function drawPendingConnection() {
-        if (interaction.mode !== "connect" || !interaction.connectFromCardId) {
+        if (interaction.mode !== "connect" || !interaction.connectFromCardId || !interaction.connectFromPortId) {
           return;
         }
-        const from = getCard(interaction.connectFromCardId);
-        if (!from) {
+        const startCard = getCard(interaction.connectFromCardId);
+        const startPort = getPortDefinition(interaction.connectFromPortId);
+        if (!startCard || !startPort) {
           return;
         }
-        const start = getCardOutputPortScreenPoint(from);
+        const start = getCardPortScreenPoint(startCard, startPort.id);
         const end = { x: interaction.connectPointerX, y: interaction.connectPointerY };
+        const delta = clamp(Math.max(80, distance(start.x, start.y, end.x, end.y) * 0.32), 80, 220);
+        const normal = getPortNormal(startPort.side);
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
-        const delta = Math.max(80, Math.abs(end.x - start.x) * 0.5);
-        ctx.bezierCurveTo(start.x + delta, start.y, end.x - delta, end.y, end.x, end.y);
+        ctx.bezierCurveTo(
+          start.x + normal.x * delta,
+          start.y + normal.y * delta,
+          end.x - normal.x * delta * 0.35,
+          end.y - normal.y * delta * 0.35,
+          end.x,
+          end.y
+        );
         ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
         ctx.lineWidth = 4;
         ctx.setLineDash([10, 8]);
@@ -2205,7 +2303,7 @@
         const visibleIds = new Set();
 
         state.cards.forEach((card) => {
-          if (card.type !== "markdown" && card.type !== "agent") {
+          if (card.type !== "markdown" && card.type !== "file" && card.type !== "agent") {
             return;
           }
           // 交互按钮是独立 DOM，覆盖在 canvas 上层，浏览器自动化可直接 click。
@@ -2231,6 +2329,9 @@
           element.querySelectorAll(".card-action").forEach((button) => {
             button.classList.toggle("is-paused", button.dataset.action === "pause" && card.status === "paused");
             button.classList.toggle("is-running", button.dataset.action === "run" && card.status === "running");
+            if (button.dataset.action === "stop") {
+              button.classList.toggle("hidden", card.status !== "running");
+            }
           });
         });
 
@@ -2247,13 +2348,14 @@
         group.className = "card-controls";
         group.dataset.cardId = card.id;
 
-        if (card.type === "markdown") {
-          group.appendChild(createCardButton(card.id, "edit", "✏️", "编辑 Markdown"));
+        if (card.type === "markdown" || card.type === "file") {
+          group.appendChild(createCardButton(card.id, "edit", "✎", `编辑 ${TYPE_LABELS[card.type]}`));
         }
 
         if (card.type === "agent") {
           group.appendChild(createCardButton(card.id, "run", "▶", "运行 Agent"));
           group.appendChild(createCardButton(card.id, "pause", "⏸", "暂停 Agent"));
+          group.appendChild(createCardButton(card.id, "stop", "⏹", "停止 Agent"));
           group.appendChild(createCardButton(card.id, "chat", "💬", "打开聊天面板"));
         }
 
@@ -2288,6 +2390,23 @@
         return state.pipes.filter((pipe) => pipe.to === cardId);
       }
 
+      function getAgentTriggerCardId(agentCardId) {
+        for (const pipe of state.pipes) {
+          if (pipe.to !== agentCardId) {
+            continue;
+          }
+          const source = getCard(pipe.from);
+          if (source && (source.type === "markdown" || source.type === "file")) {
+            return source.id;
+          }
+        }
+        return null;
+      }
+
+      function isTriggerCard(cardId) {
+        return state.cards.some((card) => card.type === "agent" && getAgentTriggerCardId(card.id) === cardId);
+      }
+
       function getCardOutput(card) {
         return card.type === "agent" ? card.output || "" : card.content || "";
       }
@@ -2300,12 +2419,12 @@
         card.activeUntil = performance.now() + ACTIVE_MS;
       }
 
-      function flashPipe(fromCardId, toCardId) {
-        pipeActiveUntil.set(`${fromCardId}:${toCardId}`, performance.now() + ACTIVE_MS);
+      function flashPipe(pipeId) {
+        pipeActiveUntil.set(pipeId, performance.now() + ACTIVE_MS);
       }
 
       function isPipeActive(pipe, now) {
-        const until = pipeActiveUntil.get(`${pipe.from}:${pipe.to}`) || 0;
+        const until = pipeActiveUntil.get(pipe.id) || 0;
         const from = getCard(pipe.from);
         const to = getCard(pipe.to);
         return now < until || from?.status === "running" || to?.status === "running";
@@ -2340,16 +2459,114 @@
         return null;
       }
 
-      function getPortHit(card, screenX, screenY) {
-        const input = getCardInputPortScreenPoint(card);
-        if (distance(screenX, screenY, input.x, input.y) <= PIPE_HIT_RADIUS) {
-          return "input";
-        }
-        const output = getCardOutputPortScreenPoint(card);
-        if (distance(screenX, screenY, output.x, output.y) <= PIPE_HIT_RADIUS) {
-          return "output";
+      function getTopmostPortHit(screenX, screenY, kind, excludeCardId) {
+        for (let index = state.cards.length - 1; index >= 0; index -= 1) {
+          const card = state.cards[index];
+          if (excludeCardId && card.id === excludeCardId) {
+            continue;
+          }
+          const hit = getPortHit(card, screenX, screenY, kind);
+          if (hit) {
+            return { card, port: hit };
+          }
         }
         return null;
+      }
+
+      function getPortHit(card, screenX, screenY, kind) {
+        let bestPort = null;
+        let bestDistance = Infinity;
+        CARD_PORTS.forEach((port) => {
+          if (kind && port.kind !== kind) {
+            return;
+          }
+          const point = getCardPortScreenPoint(card, port.id);
+          const hitDistance = distance(screenX, screenY, point.x, point.y);
+          if (hitDistance <= PIPE_HIT_RADIUS && hitDistance < bestDistance) {
+            bestPort = port;
+            bestDistance = hitDistance;
+          }
+        });
+        return bestPort;
+      }
+
+      function getPortDefinition(portId) {
+        return CARD_PORTS.find((port) => port.id === portId) || null;
+      }
+
+      function getPortNormal(side) {
+        if (side === "top") {
+          return { x: 0, y: -1 };
+        }
+        if (side === "bottom") {
+          return { x: 0, y: 1 };
+        }
+        if (side === "left") {
+          return { x: -1, y: 0 };
+        }
+        return { x: 1, y: 0 };
+      }
+
+      function getPortRadius() {
+        return 13;
+      }
+
+      function shouldRevealPorts(card) {
+        return (
+          hoveredCardId === card.id ||
+          selectedCardId === card.id ||
+          interaction.cardId === card.id ||
+          interaction.connectFromCardId === card.id ||
+          editorCardId === card.id
+        );
+      }
+
+      function updateCardPortReveal(card, dt) {
+        const target = shouldRevealPorts(card) ? 1 : 0;
+        const speed = target > card.portReveal ? dt / 140 : dt / 180;
+        card.portReveal = clamp(card.portReveal + (target > card.portReveal ? speed : -speed), 0, 1);
+        return card.portReveal;
+      }
+
+      function getCardPortScreenPoint(card, portId) {
+        const rect = getCardScreenRect(card);
+        const port = getPortDefinition(portId) || getPortDefinition("right");
+        return {
+          x: rect.x + rect.w * port.fx,
+          y: rect.y + rect.h * port.fy,
+        };
+      }
+
+      function getPipeControlDistance(start, end, fromSide, toSide) {
+        const total = distance(start.x, start.y, end.x, end.y);
+        const horizontal = Math.abs(end.x - start.x);
+        const vertical = Math.abs(end.y - start.y);
+        const axis = Math.max(
+          fromSide === "left" || fromSide === "right" ? horizontal : vertical,
+          toSide === "left" || toSide === "right" ? horizontal : vertical
+        );
+        return clamp(Math.max(80, axis * 0.55, total * 0.28), 80, 240);
+      }
+
+      function getPipeCurve(fromCardId, fromPortId, toCardId, toPortId) {
+        const fromCard = getCard(fromCardId);
+        const toCard = getCard(toCardId);
+        const fromPort = getPortDefinition(fromPortId) || getPortDefinition("right");
+        const toPort = getPortDefinition(toPortId) || getPortDefinition("left");
+        if (!fromCard || !toCard || !fromPort || !toPort) {
+          return null;
+        }
+        const p0 = getCardPortScreenPoint(fromCard, fromPort.id);
+        const p3 = getCardPortScreenPoint(toCard, toPort.id);
+        const delta = getPipeControlDistance(p0, p3, fromPort.side, toPort.side);
+        const startNormal = getPortNormal(fromPort.side);
+        const endNormal = getPortNormal(toPort.side);
+        return {
+          p0,
+          p1: { x: p0.x + startNormal.x * delta, y: p0.y + startNormal.y * delta },
+          p2: { x: p3.x + endNormal.x * delta, y: p3.y + endNormal.y * delta },
+          p3,
+        };
       }
 
       function getCardScreenRect(card) {
@@ -2360,16 +2577,6 @@
           w: card.w * GRID_SIZE * state.camera.zoom,
           h: card.h * GRID_SIZE * state.camera.zoom,
         };
-      }
-
-      function getCardInputPortScreenPoint(card) {
-        const rect = getCardScreenRect(card);
-        return { x: rect.x, y: rect.y + rect.h / 2 };
-      }
-
-      function getCardOutputPortScreenPoint(card) {
-        const rect = getCardScreenRect(card);
-        return { x: rect.x + rect.w, y: rect.y + rect.h / 2 };
       }
 
       function worldToScreen(x, y) {
@@ -2463,6 +2670,14 @@
         return {
           x: it ** 3 * p0.x + 3 * it ** 2 * t * p1.x + 3 * it * t ** 2 * p2.x + t ** 3 * p3.x,
           y: it ** 3 * p0.y + 3 * it ** 2 * t * p1.y + 3 * it * t ** 2 * p2.y + t ** 3 * p3.y,
+        };
+      }
+
+      function cubicBezierTangent(p0, p1, p2, p3, t) {
+        const it = 1 - t;
+        return {
+          x: 3 * it ** 2 * (p1.x - p0.x) + 6 * it * t * (p2.x - p1.x) + 3 * t ** 2 * (p3.x - p2.x),
+          y: 3 * it ** 2 * (p1.y - p0.y) + 6 * it * t * (p2.y - p1.y) + 3 * t ** 2 * (p3.y - p2.y),
         };
       }
 
