@@ -601,7 +601,7 @@
       const MAX_ZOOM = 3;
       const LONG_PRESS_MS = 460;
       const MOVE_THRESHOLD = 8;
-      const PIPE_HIT_RADIUS = 24;
+      const PIPE_HIT_RADIUS = 36;
       const MAX_FLOW_HOPS = 24;
       const ACTIVE_MS = 1800;
       const CARD_COLORS = {
@@ -2090,7 +2090,7 @@
           const delta = Math.max(80, Math.abs(end.x - start.x) * 0.5);
           ctx.bezierCurveTo(start.x + delta, start.y, end.x - delta, end.y, end.x, end.y);
           ctx.strokeStyle = active ? `rgba(245, 158, 11, ${0.45 + pulse * 0.4})` : "rgba(255, 255, 255, 0.18)";
-          ctx.lineWidth = active ? 3 + pulse : 2;
+          ctx.lineWidth = active ? 5 + pulse * 2 : 3.5;
           ctx.stroke();
 
           drawFlowIndicator(start, end, active ? pulse : 0);
@@ -2169,9 +2169,9 @@
       }
 
       function drawPort(x, y, color) {
-        const radius = Math.max(8, 10 * state.camera.zoom);
+        const radius = Math.max(12, 14 * state.camera.zoom);
         ctx.beginPath();
-        ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+        ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
         ctx.fill();
         ctx.beginPath();
@@ -2195,7 +2195,7 @@
         const delta = Math.max(80, Math.abs(end.x - start.x) * 0.5);
         ctx.bezierCurveTo(start.x + delta, start.y, end.x - delta, end.y, end.x, end.y);
         ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.setLineDash([10, 8]);
         ctx.stroke();
         ctx.setLineDash([]);
