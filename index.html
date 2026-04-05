@@ -22,9 +22,9 @@
       --error: #ef4444;
       --ok: #22c55e;
       --warn: #f59e0b;
-      --button-bg: rgba(18, 18, 20, 0.88);
-      --button-hover: rgba(38, 38, 42, 0.96);
-      --button-border: rgba(255, 255, 255, 0.14);
+      --button-bg: rgba(0, 0, 0, 0.5);
+      --button-hover: rgba(0, 0, 0, 0.7);
+      --button-border: rgba(255, 255, 255, 0.12);
     }
 
     * {
@@ -87,13 +87,14 @@
     .card-controls {
       position: absolute;
       display: flex;
-      gap: 6px;
+      align-items: center;
+      gap: 4px;
       pointer-events: auto;
     }
 
     .card-action {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border: 1px solid var(--button-border);
       border-radius: 999px;
       background: var(--button-bg);
@@ -103,8 +104,10 @@
       align-items: center;
       justify-content: center;
       transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
-      font-size: 14px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+      font-size: 13px;
+      line-height: 1;
+      padding: 0;
     }
 
     .card-action:hover {
@@ -614,6 +617,10 @@
       const LONG_PRESS_MS = 460;
       const MOVE_THRESHOLD = 8;
       const PIPE_HIT_RADIUS = 36;
+      const PORT_RADIUS = 8;
+      const CARD_HEADER_HEIGHT = 40;
+      const CARD_CONTROL_SIZE = 28;
+      const CARD_CONTROL_INSET = 6;
       const MAX_FLOW_HOPS = 24;
       const ACTIVE_MS = 1800;
       const CARD_COLORS = {
@@ -1305,7 +1312,18 @@
           return;
         }
         if (action === "run") {
-          resumeAndRunAgent(cardId, "manual-run");
+          const card = getCard(cardId);
+          if (!card) {
+            return;
+          }
+          if (card.type === "agent") {
+            resumeAndRunAgent(cardId, "manual-run");
+            return;
+          }
+          if ((card.type === "markdown" || card.type === "file") && hasDownstreamPipes(card.id)) {
+            markCardActive(card.id);
+            propagateFromCard(card.id, { reason: "manual-trigger", hops: 0, flowId: createId() });
+          }
           return;
         }
         if (action === "pause") {
@@ -1381,7 +1399,7 @@
           card.updatedAt = new Date().toISOString();
           markCardActive(card.id);
           scheduleSave();
-          if ((card.type === "markdown" || card.type === "file") && isTriggerCard(card.id)) {
+          if ((card.type === "markdown" || card.type === "file") && hasDownstreamPipes(card.id)) {
             propagateFromCard(card.id, { reason: "trigger-saved", hops: 0, flowId: createId() });
           }
         }
@@ -1527,6 +1545,19 @@
       }
 
       function createPipe(fromCardId, fromPortId, toCardId, toPortId) {
+        if (fromCardId === toCardId) {
+          return;
+        }
+        const fromCard = getCard(fromCardId);
+        const toCard = getCard(toCardId);
+        const fromPort = getPortDefinition(fromPortId);
+        const toPort = getPortDefinition(toPortId);
+        if (!fromCard || !toCard || !fromPort || !toPort) {
+          return;
+        }
+        if (fromPort.kind !== "output" || toPort.kind !== "input") {
+          return;
+        }
         const exists = state.pipes.some(
           (pipe) => pipe.from === fromCardId && pipe.fromPort === fromPortId && pipe.to === toCardId && pipe.toPort === toPortId
         );
@@ -2223,7 +2254,7 @@
             : "rgba(15, 23, 42, 0.18)";
           ctx.stroke();
 
-          const bandHeight = Math.max(8, 10 * state.camera.zoom);
+          const bandHeight = getCardHeaderHeight(rect);
           ctx.fillStyle = CARD_COLORS[card.type];
           ctx.fillRect(rect.x, rect.y, rect.w, bandHeight);
 
@@ -2259,7 +2290,7 @@
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+        ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
         ctx.fill();
         ctx.beginPath();
@@ -2308,7 +2339,6 @@
           }
           // 交互按钮是独立 DOM，覆盖在 canvas 上层，浏览器自动化可直接 click。
           const rect = getCardScreenRect(card);
-          const isVisible = rectVisible(rect) && rect.w >= 72 && rect.h >= 80;
           let element = controlElements.get(card.id);
           if (!element) {
             element = createControlGroup(card);
@@ -2316,6 +2346,13 @@
             controlsLayer.appendChild(element);
           }
           visibleIds.add(card.id);
+          const runButton = element.querySelector('[data-action="run"]');
+          if (runButton && (card.type === "markdown" || card.type === "file")) {
+            runButton.classList.toggle("hidden", !hasDownstreamPipes(card.id));
+          }
+          const bandHeight = getCardHeaderHeight(rect);
+          const fitsBand = bandHeight >= CARD_CONTROL_SIZE + CARD_CONTROL_INSET;
+          const isVisible = rectVisible(rect) && fitsBand && rect.h >= 80;
 
           if (!isVisible) {
             element.classList.add("hidden");
@@ -2323,8 +2360,8 @@
           }
 
           element.classList.remove("hidden");
-          element.style.left = `${Math.round(rect.x + rect.w - element.offsetWidth - 8)}px`;
-          element.style.top = `${Math.round(rect.y + 8)}px`;
+          element.style.left = `${Math.round(rect.x + rect.w - element.offsetWidth - CARD_CONTROL_INSET)}px`;
+          element.style.top = `${Math.round(rect.y + Math.max(CARD_CONTROL_INSET, (bandHeight - CARD_CONTROL_SIZE) / 2))}px`;
 
           element.querySelectorAll(".card-action").forEach((button) => {
             button.classList.toggle("is-paused", button.dataset.action === "pause" && card.status === "paused");
@@ -2349,7 +2386,8 @@
         group.dataset.cardId = card.id;
 
         if (card.type === "markdown" || card.type === "file") {
-          group.appendChild(createCardButton(card.id, "edit", "✎", `编辑 ${TYPE_LABELS[card.type]}`));
+          group.appendChild(createCardButton(card.id, "run", "▶", `运行 ${TYPE_LABELS[card.type]} 流程`));
+          group.appendChild(createCardButton(card.id, "edit", "✏️", `编辑 ${TYPE_LABELS[card.type]}`));
         }
 
         if (card.type === "agent") {
@@ -2390,21 +2428,13 @@
         return state.pipes.filter((pipe) => pipe.to === cardId);
       }
 
-      function getAgentTriggerCardId(agentCardId) {
-        for (const pipe of state.pipes) {
-          if (pipe.to !== agentCardId) {
-            continue;
-          }
-          const source = getCard(pipe.from);
-          if (source && (source.type === "markdown" || source.type === "file")) {
-            return source.id;
-          }
-        }
-        return null;
+      function hasDownstreamPipes(cardId) {
+        return state.pipes.some((pipe) => pipe.from === cardId);
       }
 
       function isTriggerCard(cardId) {
-        return state.cards.some((card) => card.type === "agent" && getAgentTriggerCardId(card.id) === cardId);
+        const card = getCard(cardId);
+        return !!card && (card.type === "markdown" || card.type === "file") && hasDownstreamPipes(cardId);
       }
 
       function getCardOutput(card) {
@@ -2508,7 +2538,11 @@
       }
 
       function getPortRadius() {
-        return 13;
+        return PORT_RADIUS;
+      }
+
+      function getCardHeaderHeight(rect) {
+        return Math.max(24, Math.min(CARD_HEADER_HEIGHT, rect.h - 18));
       }
 
       function shouldRevealPorts(card) {
