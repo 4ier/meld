@@ -616,11 +616,19 @@
       const MAX_ZOOM = 3;
       const LONG_PRESS_MS = 460;
       const MOVE_THRESHOLD = 8;
+      const DOUBLE_TAP_MS = 320;
+      const DOUBLE_TAP_DISTANCE = 24;
       const PIPE_HIT_RADIUS = 36;
+      const CARD_EDGE_CONNECT_BAND = 30;
+      const CARD_CENTER_EDIT_INSET = 30;
+      const CARD_SNAP_BAND = 40;
       const PORT_RADIUS = 8;
-      const CARD_HEADER_HEIGHT = 40;
+      const CARD_BAND_HEIGHT = 4;
       const CARD_CONTROL_SIZE = 28;
+      const CARD_CONTROL_GAP = 4;
       const CARD_CONTROL_INSET = 6;
+      const CARD_BODY_FONT_SIZE = 13;
+      const CARD_META_FONT_SIZE = 11;
       const MAX_FLOW_HOPS = 24;
       const ACTIVE_MS = 1800;
       const CARD_COLORS = {
@@ -695,6 +703,12 @@
       let saveTimer = null;
       let lastFrameTime = performance.now();
       let hoveredCardId = null;
+      const tapState = {
+        cardId: null,
+        time: 0,
+        x: 0,
+        y: 0,
+      };
 
       const controlElements = new Map();
       const pipeActiveUntil = new Map();
@@ -722,6 +736,8 @@
         connectFromPortId: null,
         connectPointerX: 0,
         connectPointerY: 0,
+        connectTargetCardId: null,
+        connectTargetPortId: null,
         pinchStartZoom: 1,
         pinchStartDistance: 0,
         pinchWorldCenter: { x: 0, y: 0 },
@@ -1124,11 +1140,15 @@
           hoveredCardId = card.id;
           bringCardToFront(card.id);
           if (portHit && portHit.card.id === card.id && portHit.port.kind === "output") {
-            interaction.mode = "connect";
-            interaction.connectFromCardId = card.id;
-            interaction.connectFromPortId = portHit.port.id;
-            interaction.connectPointerX = event.clientX;
-            interaction.connectPointerY = event.clientY;
+            beginConnection(card.id, portHit.port.id, event.clientX, event.clientY, "connect");
+            return;
+          }
+
+          if (isPointInCardEdgeBand(card, event.clientX, event.clientY, CARD_EDGE_CONNECT_BAND)) {
+            const nearestOutputPort = getNearestCardPort(card, event.clientX, event.clientY, "output");
+            if (nearestOutputPort) {
+              beginConnection(card.id, nearestOutputPort.id, event.clientX, event.clientY, "edge-connect");
+            }
             return;
           }
 
@@ -1158,8 +1178,15 @@
           pointer.y = event.clientY;
         }
 
-        if (event.pointerType === "mouse" || interaction.mode === "connect") {
-          hoveredCardId = getTopmostPortHit(event.clientX, event.clientY)?.card.id || getCardAtScreenPoint(event.clientX, event.clientY)?.id || null;
+        if (interaction.mode === "edge-connect" || interaction.mode === "connect") {
+          interaction.connectPointerX = event.clientX;
+          interaction.connectPointerY = event.clientY;
+          const snapTarget = getSnapInputTarget(event.clientX, event.clientY, interaction.connectFromCardId);
+          interaction.connectTargetCardId = snapTarget?.card.id || null;
+          interaction.connectTargetPortId = snapTarget?.port.id || null;
+          hoveredCardId = snapTarget?.card.id || getCardAtScreenPoint(event.clientX, event.clientY)?.id || interaction.connectFromCardId || null;
+        } else if (event.pointerType === "mouse") {
+          hoveredCardId = getCardAtScreenPoint(event.clientX, event.clientY)?.id || null;
         }
 
         if (Math.abs(event.clientX - interaction.startScreenX) > MOVE_THRESHOLD || Math.abs(event.clientY - interaction.startScreenY) > MOVE_THRESHOLD) {
@@ -1182,6 +1209,13 @@
           card.y = world.y - interaction.dragOffsetY;
           card.updatedAt = new Date().toISOString();
           scheduleSave();
+          return;
+        }
+
+        if (interaction.mode === "edge-connect") {
+          if (interaction.moved) {
+            interaction.mode = "connect";
+          }
           return;
         }
 
@@ -1224,23 +1258,30 @@
           }
         }
 
-        if (interaction.mode === "connect" && interaction.connectFromCardId) {
-          const targetHit = getTopmostPortHit(event.clientX, event.clientY, "input", interaction.connectFromCardId);
+        if ((interaction.mode === "connect" || interaction.mode === "edge-connect") && interaction.connectFromCardId) {
+          const targetHit = getSnapInputTarget(event.clientX, event.clientY, interaction.connectFromCardId);
           if (targetHit) {
             createPipe(interaction.connectFromCardId, interaction.connectFromPortId || "right", targetHit.card.id, targetHit.port.id);
           }
         }
 
-        if (!interaction.moved && pointer && interaction.mode === "pan") {
+        if (!interaction.moved && pointer) {
           const hit = getCardAtScreenPoint(pointer.x, pointer.y);
           selectedCardId = hit ? hit.id : null;
           hoveredCardId = selectedCardId;
+          if (hit) {
+            handleCardTap(hit, pointer.x, pointer.y);
+          } else {
+            clearTapState();
+          }
         }
 
         interaction.mode = activePointers.size ? "pan" : "idle";
         interaction.cardId = null;
         interaction.connectFromCardId = null;
         interaction.connectFromPortId = null;
+        interaction.connectTargetCardId = null;
+        interaction.connectTargetPortId = null;
       }
 
       function onCanvasPointerLeave(event) {
@@ -1369,11 +1410,11 @@
 
       function openEditor(cardId) {
         const card = getCard(cardId);
-        if (!card) {
+        if (!card || card.type === "note") {
           return;
         }
         editorCardId = cardId;
-        editorTitle.textContent = `编辑 ${card.title}`;
+        editorTitle.textContent = card.type === "agent" ? "编辑 Agent 指令" : `编辑 ${TYPE_LABELS[card.type]} 内容`;
         editorText.value = card.content;
         editorOverlay.classList.remove("hidden");
         window.setTimeout(() => editorText.focus(), 0);
@@ -1431,7 +1472,7 @@
           return;
         }
         const runtime = ensureAgentRuntime(card.id);
-        chatTitleText.textContent = card.title;
+        chatTitleText.textContent = "Agent Chat";
         chatSubtitle.textContent = normalizeSessionKey(card.sessionKey);
         chatHint.textContent = gateway.status === "connected" ? `${GATEWAY_STATUS_LABELS[gateway.status]} · ${card.status}` : GATEWAY_STATUS_LABELS[gateway.status];
         chatHistory.innerHTML = "";
@@ -2161,6 +2202,7 @@
           const active = isPipeActive(pipe, now);
           const pulse = active ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(now / 180)) : 0;
           const strokeStyle = active ? `rgba(245, 158, 11, ${0.45 + pulse * 0.4})` : "rgba(255, 255, 255, 0.18)";
+          const lineWidth = (active ? 5 + pulse * 2 : 3.5) * state.camera.zoom;
 
           ctx.save();
           ctx.lineCap = "round";
@@ -2169,12 +2211,12 @@
           ctx.moveTo(curve.p0.x, curve.p0.y);
           ctx.bezierCurveTo(curve.p1.x, curve.p1.y, curve.p2.x, curve.p2.y, curve.p3.x, curve.p3.y);
           ctx.strokeStyle = strokeStyle;
-          ctx.lineWidth = active ? 5 + pulse * 2 : 3.5;
+          ctx.lineWidth = lineWidth;
           ctx.stroke();
           ctx.restore();
 
           drawFlowIndicator(curve, active ? pulse : 0);
-          drawPipeArrow(curve, strokeStyle, active ? pulse : 0);
+          drawPipeArrow(curve, strokeStyle);
         });
       }
 
@@ -2189,22 +2231,22 @@
         );
 
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 3 + pulse * 1.5, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, (3 + pulse * 1.5) * state.camera.zoom, 0, Math.PI * 2);
         ctx.fillStyle = pulse ? `rgba(251, 191, 36, ${0.4 + pulse * 0.5})` : "rgba(255, 255, 255, 0.18)";
         ctx.fill();
       }
 
-      function drawPipeArrow(curve, color, pulse) {
-        const tangent = cubicBezierTangent(curve.p0, curve.p1, curve.p2, curve.p3, 0.985);
+      function drawPipeArrow(curve, color) {
+        const tangent = cubicBezierTangent(curve.p0, curve.p1, curve.p2, curve.p3, 0.995);
         const tangentLength = Math.hypot(tangent.x, tangent.y);
         if (!tangentLength) {
           return;
         }
         const ux = tangent.x / tangentLength;
         const uy = tangent.y / tangentLength;
-        const arrowLength = 10 + pulse * 1.2;
-        const halfWidth = 4 + pulse * 0.7;
-        const tipOffset = getPortRadius() + 1;
+        const arrowLength = 8 * state.camera.zoom;
+        const halfWidth = arrowLength * 0.55;
+        const tipOffset = getPortRadius() + 1.5 * state.camera.zoom;
         const tip = {
           x: curve.p3.x - ux * tipOffset,
           y: curve.p3.y - uy * tipOffset,
@@ -2235,20 +2277,21 @@
           const activePulse = card.status === "running" || now < card.activeUntil
             ? 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(now / 190))
             : 0;
+          const zoom = state.camera.zoom;
 
           ctx.save();
           ctx.beginPath();
-          roundRectPath(ctx, rect.x, rect.y, rect.w, rect.h, 8 * state.camera.zoom);
+          roundRectPath(ctx, rect.x, rect.y, rect.w, rect.h, 8 * zoom);
           ctx.fillStyle = "#ffffff";
           ctx.shadowColor = activePulse ? `rgba(245, 158, 11, ${0.18 + activePulse * 0.2})` : "rgba(0, 0, 0, 0.22)";
-          ctx.shadowBlur = activePulse ? 24 : 18;
-          ctx.shadowOffsetY = 10;
+          ctx.shadowBlur = (activePulse ? 24 : 18) * zoom;
+          ctx.shadowOffsetY = 10 * zoom;
           ctx.fill();
           ctx.restore();
 
           ctx.beginPath();
-          roundRectPath(ctx, rect.x, rect.y, rect.w, rect.h, 8 * state.camera.zoom);
-          ctx.lineWidth = selectedCardId === card.id ? 2.5 : 1.5;
+          roundRectPath(ctx, rect.x, rect.y, rect.w, rect.h, 8 * zoom);
+          ctx.lineWidth = (selectedCardId === card.id ? 2.5 : 1.5) * zoom;
           ctx.strokeStyle = activePulse
             ? `rgba(245, 158, 11, ${0.3 + activePulse * 0.45})`
             : "rgba(15, 23, 42, 0.18)";
@@ -2258,21 +2301,7 @@
           ctx.fillStyle = CARD_COLORS[card.type];
           ctx.fillRect(rect.x, rect.y, rect.w, bandHeight);
 
-          const pad = 14 * state.camera.zoom;
-          ctx.fillStyle = "#111827";
-          ctx.font = `${Math.max(12, 14 * state.camera.zoom)}px Inter, system-ui, sans-serif`;
-          ctx.textBaseline = "top";
-          ctx.fillText(card.title, rect.x + pad, rect.y + bandHeight + 10 * state.camera.zoom);
-
-          ctx.fillStyle = "rgba(17, 24, 39, 0.56)";
-          ctx.font = `${Math.max(10, 11 * state.camera.zoom)}px Inter, system-ui, sans-serif`;
-          const meta = card.type === "agent" ? `${card.status} · ${normalizeSessionKey(card.sessionKey)}` : TYPE_LABELS[card.type];
-          ctx.fillText(meta, rect.x + pad, rect.y + bandHeight + 32 * state.camera.zoom);
-
-          const bodyTop = rect.y + bandHeight + 54 * state.camera.zoom;
-          const bodyHeight = rect.h - (bodyTop - rect.y) - 18 * state.camera.zoom;
-          const bodyText = getCardPreview(card);
-          drawTextBlock(bodyText, rect.x + pad, bodyTop, rect.w - pad * 2, bodyHeight, state.camera.zoom);
+          drawCardBody(card, rect, bandHeight);
 
           const portReveal = updateCardPortReveal(card, dt);
           CARD_PORTS.forEach((port) => {
@@ -2290,7 +2319,7 @@
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+        ctx.arc(x, y, radius + 2 * state.camera.zoom, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
         ctx.fill();
         ctx.beginPath();
@@ -2301,7 +2330,7 @@
       }
 
       function drawPendingConnection() {
-        if (interaction.mode !== "connect" || !interaction.connectFromCardId || !interaction.connectFromPortId) {
+        if ((interaction.mode !== "connect" && interaction.mode !== "edge-connect") || !interaction.connectFromCardId || !interaction.connectFromPortId) {
           return;
         }
         const startCard = getCard(interaction.connectFromCardId);
@@ -2310,22 +2339,33 @@
           return;
         }
         const start = getCardPortScreenPoint(startCard, startPort.id);
-        const end = { x: interaction.connectPointerX, y: interaction.connectPointerY };
-        const delta = clamp(Math.max(80, distance(start.x, start.y, end.x, end.y) * 0.32), 80, 220);
+        const snappedTarget = interaction.connectTargetCardId && interaction.connectTargetPortId
+          ? {
+              card: getCard(interaction.connectTargetCardId),
+              port: getPortDefinition(interaction.connectTargetPortId),
+            }
+          : null;
+        const end = snappedTarget?.card && snappedTarget?.port
+          ? getCardPortScreenPoint(snappedTarget.card, snappedTarget.port.id)
+          : { x: interaction.connectPointerX, y: interaction.connectPointerY };
+        const minControl = 80 * state.camera.zoom;
+        const maxControl = 220 * state.camera.zoom;
+        const delta = clamp(Math.max(minControl, distance(start.x, start.y, end.x, end.y) * 0.32), minControl, maxControl);
         const normal = getPortNormal(startPort.side);
+        const endNormal = snappedTarget?.port ? getPortNormal(snappedTarget.port.side) : { x: -normal.x, y: -normal.y };
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
         ctx.bezierCurveTo(
           start.x + normal.x * delta,
           start.y + normal.y * delta,
-          end.x - normal.x * delta * 0.35,
-          end.y - normal.y * delta * 0.35,
+          end.x + endNormal.x * delta * 0.55,
+          end.y + endNormal.y * delta * 0.55,
           end.x,
           end.y
         );
         ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
-        ctx.lineWidth = 4;
-        ctx.setLineDash([10, 8]);
+        ctx.lineWidth = 4 * state.camera.zoom;
+        ctx.setLineDash([10 * state.camera.zoom, 8 * state.camera.zoom]);
         ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -2350,9 +2390,16 @@
           if (runButton && (card.type === "markdown" || card.type === "file")) {
             runButton.classList.toggle("hidden", !hasDownstreamPipes(card.id));
           }
+          element.classList.remove("hidden");
+          updateControlGroupScale(element);
           const bandHeight = getCardHeaderHeight(rect);
-          const fitsBand = bandHeight >= CARD_CONTROL_SIZE + CARD_CONTROL_INSET;
-          const isVisible = rectVisible(rect) && fitsBand && rect.h >= 80;
+          const inset = CARD_CONTROL_INSET * state.camera.zoom;
+          const elementWidth = element.getBoundingClientRect().width || element.offsetWidth;
+          const elementHeight = element.getBoundingClientRect().height || element.offsetHeight;
+          const isVisible =
+            rectVisible(rect) &&
+            rect.w >= elementWidth + inset * 2 &&
+            rect.h >= bandHeight + elementHeight + inset * 2;
 
           if (!isVisible) {
             element.classList.add("hidden");
@@ -2360,8 +2407,8 @@
           }
 
           element.classList.remove("hidden");
-          element.style.left = `${Math.round(rect.x + rect.w - element.offsetWidth - CARD_CONTROL_INSET)}px`;
-          element.style.top = `${Math.round(rect.y + Math.max(CARD_CONTROL_INSET, (bandHeight - CARD_CONTROL_SIZE) / 2))}px`;
+          element.style.left = `${Math.round(rect.x + rect.w - elementWidth - inset)}px`;
+          element.style.top = `${Math.round(rect.y + bandHeight + inset)}px`;
 
           element.querySelectorAll(".card-action").forEach((button) => {
             button.classList.toggle("is-paused", button.dataset.action === "pause" && card.status === "paused");
@@ -2395,9 +2442,23 @@
           group.appendChild(createCardButton(card.id, "pause", "⏸", "暂停 Agent"));
           group.appendChild(createCardButton(card.id, "stop", "⏹", "停止 Agent"));
           group.appendChild(createCardButton(card.id, "chat", "💬", "打开聊天面板"));
+          group.appendChild(createCardButton(card.id, "edit", "✏️", "编辑 Agent 指令"));
         }
 
         return group;
+      }
+
+      function updateControlGroupScale(group) {
+        const zoom = state.camera.zoom;
+        const size = CARD_CONTROL_SIZE * zoom;
+        group.style.gap = `${CARD_CONTROL_GAP * zoom}px`;
+        group.querySelectorAll(".card-action").forEach((button) => {
+          button.style.width = `${size}px`;
+          button.style.height = `${size}px`;
+          button.style.fontSize = `${CARD_BODY_FONT_SIZE * zoom}px`;
+          button.style.borderWidth = `${zoom}px`;
+          button.style.boxShadow = `0 ${6 * zoom}px ${16 * zoom}px rgba(0, 0, 0, 0.22)`;
+        });
       }
 
       function createCardButton(cardId, action, text, label) {
@@ -2524,6 +2585,23 @@
         return CARD_PORTS.find((port) => port.id === portId) || null;
       }
 
+      function getNearestCardPort(card, screenX, screenY, kind) {
+        let bestPort = null;
+        let bestDistance = Infinity;
+        CARD_PORTS.forEach((port) => {
+          if (kind && port.kind !== kind) {
+            return;
+          }
+          const point = getCardPortScreenPoint(card, port.id);
+          const hitDistance = distance(screenX, screenY, point.x, point.y);
+          if (hitDistance < bestDistance) {
+            bestPort = port;
+            bestDistance = hitDistance;
+          }
+        });
+        return bestPort;
+      }
+
       function getPortNormal(side) {
         if (side === "top") {
           return { x: 0, y: -1 };
@@ -2538,11 +2616,11 @@
       }
 
       function getPortRadius() {
-        return PORT_RADIUS;
+        return PORT_RADIUS * state.camera.zoom;
       }
 
       function getCardHeaderHeight(rect) {
-        return Math.max(24, Math.min(CARD_HEADER_HEIGHT, rect.h - 18));
+        return Math.min(CARD_BAND_HEIGHT * state.camera.zoom, rect.h);
       }
 
       function shouldRevealPorts(card) {
@@ -2551,6 +2629,7 @@
           selectedCardId === card.id ||
           interaction.cardId === card.id ||
           interaction.connectFromCardId === card.id ||
+          interaction.connectTargetCardId === card.id ||
           editorCardId === card.id
         );
       }
@@ -2571,15 +2650,78 @@
         };
       }
 
+      function getDistanceToRectEdge(rect, screenX, screenY) {
+        const insideX = screenX >= rect.x && screenX <= rect.x + rect.w;
+        const insideY = screenY >= rect.y && screenY <= rect.y + rect.h;
+        if (insideX && insideY) {
+          return Math.min(
+            screenX - rect.x,
+            rect.x + rect.w - screenX,
+            screenY - rect.y,
+            rect.y + rect.h - screenY
+          );
+        }
+        const closestX = clamp(screenX, rect.x, rect.x + rect.w);
+        const closestY = clamp(screenY, rect.y, rect.y + rect.h);
+        return distance(screenX, screenY, closestX, closestY);
+      }
+
+      function isPointInCardEdgeBand(card, screenX, screenY, band) {
+        const rect = getCardScreenRect(card);
+        if (screenX < rect.x || screenX > rect.x + rect.w || screenY < rect.y || screenY > rect.y + rect.h) {
+          return false;
+        }
+        return getDistanceToRectEdge(rect, screenX, screenY) < band;
+      }
+
+      function isPointInCardCenter(card, screenX, screenY, inset) {
+        const rect = getCardScreenRect(card);
+        return (
+          screenX > rect.x + inset &&
+          screenX < rect.x + rect.w - inset &&
+          screenY > rect.y + inset &&
+          screenY < rect.y + rect.h - inset
+        );
+      }
+
+      function getSnapInputTarget(screenX, screenY, excludeCardId) {
+        let best = null;
+        let bestScore = Infinity;
+        for (let index = state.cards.length - 1; index >= 0; index -= 1) {
+          const card = state.cards[index];
+          if (card.id === excludeCardId) {
+            continue;
+          }
+          const rect = getCardScreenRect(card);
+          const edgeDistance = getDistanceToRectEdge(rect, screenX, screenY);
+          if (edgeDistance >= CARD_SNAP_BAND) {
+            continue;
+          }
+          const port = getNearestCardPort(card, screenX, screenY, "input");
+          if (!port) {
+            continue;
+          }
+          const point = getCardPortScreenPoint(card, port.id);
+          const score = edgeDistance * 8 + distance(screenX, screenY, point.x, point.y);
+          if (score < bestScore) {
+            best = { card, port };
+            bestScore = score;
+          }
+        }
+        return best;
+      }
+
       function getPipeControlDistance(start, end, fromSide, toSide) {
         const total = distance(start.x, start.y, end.x, end.y);
         const horizontal = Math.abs(end.x - start.x);
         const vertical = Math.abs(end.y - start.y);
+        const minControl = 80 * state.camera.zoom;
+        const maxControl = 240 * state.camera.zoom;
         const axis = Math.max(
           fromSide === "left" || fromSide === "right" ? horizontal : vertical,
           toSide === "left" || toSide === "right" ? horizontal : vertical
         );
-        return clamp(Math.max(80, axis * 0.55, total * 0.28), 80, 240);
+        return clamp(Math.max(minControl, axis * 0.55, total * 0.28), minControl, maxControl);
       }
 
       function getPipeCurve(fromCardId, fromPortId, toCardId, toPortId) {
@@ -2635,24 +2777,70 @@
         scheduleSave();
       }
 
-      function getCardPreview(card) {
+      function drawCardBody(card, rect, bandHeight) {
+        const zoom = state.camera.zoom;
+        const pad = 14 * zoom;
+        const bodyX = rect.x + pad;
+        let bodyY = rect.y + bandHeight + pad;
+        const bodyWidth = rect.w - pad * 2;
+        const bottomLimit = rect.y + rect.h - pad;
+
         if (card.type === "agent") {
-          const parts = [];
-          if (card.content.trim()) {
-            parts.push(`Prompt\n${card.content.trim()}`);
-          }
-          if (card.output.trim()) {
-            parts.push(`Reply\n${card.output.trim()}`);
-          } else {
-            parts.push("Reply\n等待运行...");
-          }
-          return parts.join("\n\n");
+          ctx.fillStyle = "rgba(17, 24, 39, 0.5)";
+          ctx.font = `${CARD_META_FONT_SIZE * zoom}px Inter, system-ui, sans-serif`;
+          ctx.textBaseline = "top";
+          ctx.fillText(normalizeSessionKey(card.sessionKey), bodyX, bodyY, bodyWidth);
+          bodyY += CARD_META_FONT_SIZE * zoom * 1.5 + 10 * zoom;
         }
-        return card.content || "(empty)";
+
+        const bodyHeight = Math.max(0, bottomLimit - bodyY);
+        drawTextBlock(getCardPreview(card), bodyX, bodyY, bodyWidth, bodyHeight, CARD_BODY_FONT_SIZE * zoom);
       }
 
-      function drawTextBlock(text, x, y, maxWidth, maxHeight, zoom) {
-        const fontSize = Math.max(10, 12 * zoom);
+      function getCardPreview(card) {
+        if (card.type === "agent") {
+          const summary = getAgentContextSummary(card.id);
+          const reply = card.output.trim() || "等待运行...";
+          return `上游 Context\n${summary}\n\nReply\n${reply}`;
+        }
+        return card.content || "";
+      }
+
+      function getAgentContextSummary(cardId) {
+        const visited = new Set([cardId]);
+        const entries = [];
+
+        function visit(targetId) {
+          getIncomingPipes(targetId).forEach((pipe) => {
+            const source = getCard(pipe.from);
+            if (!source || visited.has(source.id)) {
+              return;
+            }
+            visited.add(source.id);
+            visit(source.id);
+            entries.push(source);
+          });
+        }
+
+        visit(cardId);
+
+        if (!entries.length) {
+          return "(暂无上游)";
+        }
+
+        const summaryLines = entries.slice(-3).map((source) => {
+          const text = getCardOutput(source).trim().replace(/\s+/g, " ");
+          const snippet = text ? text.slice(0, 72) : "(empty)";
+          return `${TYPE_LABELS[source.type]}: ${snippet}`;
+        });
+        const remaining = entries.length - summaryLines.length;
+        return remaining > 0 ? `${summaryLines.join("\n")}\n+${remaining} 项` : summaryLines.join("\n");
+      }
+
+      function drawTextBlock(text, x, y, maxWidth, maxHeight, fontSize) {
+        if (maxHeight <= 0 || maxWidth <= 0 || fontSize <= 0) {
+          return;
+        }
         const lineHeight = fontSize * 1.45;
         ctx.font = `${fontSize}px Inter, system-ui, sans-serif`;
         ctx.fillStyle = "rgba(17, 24, 39, 0.86)";
@@ -2679,11 +2867,63 @@
           lines.push(line);
         });
 
-        const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+        const maxLines = Math.floor(maxHeight / lineHeight);
+        if (maxLines <= 0) {
+          return;
+        }
         lines.slice(0, maxLines).forEach((line, index) => {
           const content = index === maxLines - 1 && lines.length > maxLines ? `${line.replace(/\s+$/, "")}...` : line;
           ctx.fillText(content, x, y + index * lineHeight, maxWidth);
         });
+      }
+
+      function beginConnection(cardId, portId, screenX, screenY, mode) {
+        interaction.mode = mode;
+        interaction.connectFromCardId = cardId;
+        interaction.connectFromPortId = portId;
+        interaction.connectPointerX = screenX;
+        interaction.connectPointerY = screenY;
+        interaction.connectTargetCardId = null;
+        interaction.connectTargetPortId = null;
+      }
+
+      function openPrimaryCardAction(cardId) {
+        const card = getCard(cardId);
+        if (!card || card.type === "note") {
+          return;
+        }
+        if (card.type === "agent") {
+          openChatPanel(cardId);
+          return;
+        }
+        openEditor(cardId);
+      }
+
+      function handleCardTap(card, screenX, screenY) {
+        if (!isPointInCardCenter(card, screenX, screenY, CARD_CENTER_EDIT_INSET)) {
+          clearTapState();
+          return;
+        }
+        const now = performance.now();
+        const sameCard = tapState.cardId === card.id;
+        const closeEnough = distance(screenX, screenY, tapState.x, tapState.y) <= DOUBLE_TAP_DISTANCE;
+        const quickEnough = now - tapState.time <= DOUBLE_TAP_MS;
+        if (sameCard && closeEnough && quickEnough) {
+          clearTapState();
+          openPrimaryCardAction(card.id);
+          return;
+        }
+        tapState.cardId = card.id;
+        tapState.time = now;
+        tapState.x = screenX;
+        tapState.y = screenY;
+      }
+
+      function clearTapState() {
+        tapState.cardId = null;
+        tapState.time = 0;
+        tapState.x = 0;
+        tapState.y = 0;
       }
 
       function rectVisible(rect) {
